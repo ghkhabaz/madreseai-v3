@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>MadreseAI.com – چت‌بات و طراحی سوال برای مدارس</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="MadreseAI.com چت‌بات ۲۴ ساعته برای مدارس و طراحی خودکار سوال برای معلم‌ها را در یک سامانه تحت وب ارائه می‌دهد. کاهش تماس‌های تکراری، صرفه‌جویی در زمان معلمان و ارتباط بهتر با والدین.">
+     <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+    }
+    a { color: inherit; text-decoration: none; }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: #ffffff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 18px;
+      color: #111827;
+    }
+    .logo-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #38bdf8, #2563eb);
+      box-shadow: 0 0 10px rgba(37,99,235,0.4);
+    }
+    nav a {
+      margin-left: 16px;
+      font-size: 14px;
+      color: #4b5563;
+    }
+    .btn-nav {
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: 1px solid #2563eb;
+      color: #2563eb;
+      font-size: 13px;
+      cursor: pointer;
+      background: #eff6ff;
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+      gap: 32px;
+      align-items: center;
+      margin-top: 24px;
+    }
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; text-align: center; }
+      .hero-buttons { justify-content: center; }
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #e0f2fe;
+      color: #0369a1;
+      font-size: 11px;
+      border: 1px solid #bae6fd;
+      margin-bottom: 12px;
+    }
+    .badge-dot {
+      width: 7px; height: 7px; border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 6px rgba(34,197,94,0.7);
+    }
+    .hero-title {
+      font-size: 30px;
+      line-height: 1.5;
+      margin-bottom: 14px;
+      color: #111827;
+    }
+    .hero-highlight {
+      color: #1d4ed8;
+      font-weight: 800;
+    }
+    .hero-subtitle {
+      font-size: 15px;
+      color: #4b5563;
+      margin-bottom: 20px;
+    }
+    .hero-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .btn-primary, .btn-outline {
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+      box-shadow: 0 10px 20px rgba(37,99,235,0.25);
+    }
+    .btn-outline {
+      background: transparent;
+      color: #2563eb;
+      border-color: #2563eb;
+    }
+    .hero-note {
+      font-size: 12px;
+      color: #6b7280;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .chip {
+      display: inline-flex;
+      padding: 2px 8px;
+      font-size: 11px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      color: #374151;
+      background: #ffffff;
+    }
+
+    .hero-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 14px;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 12px 30px rgba(15,23,42,0.08);
+      font-size: 13px;
+    }
+    .hero-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      color: #111827;
+      font-size: 13px;
+    }
+    .pill {
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #dcfce7;
+      color: #166534;
+      font-size: 11px;
+    }
+    .hero-chat {
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 6px;
+      border: 1px solid #e5e7eb;
+    }
+    .hero-chat .q, .hero-chat .a {
+      padding: 6px 9px;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .hero-chat .q { background: #e5e7eb; }
+    .hero-chat .a { background: #dbeafe; }
+
+    .demo-label {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 11px;
+      color: #6b7280;
+    }
+
+    .section {
+      margin-top: 40px;
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+    .section h2 {
+      font-size: 22px;
+      color: #111827;
+      margin-bottom: 6px;
+    }
+    .section p {
+      font-size: 13px;
+      color: #4b5563;
+      margin: 0;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .feature {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 12px;
+      border: 1px solid #e5e7eb;
+      font-size: 13px;
+    }
+    .feature h3 {
+      font-size: 15px;
+      margin-bottom: 5px;
+      color: #111827;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .step {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 12px;
+      border: 1px dashed #d1d5db;
+      font-size: 13px;
+    }
+    .step-number {
+      width: 20px; height: 20px;
+      border-radius: 999px;
+      border: 1px solid #2563eb;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      margin-left: 6px;
+      color: #1d4ed8;
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .plan {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 14px;
+      border: 1px solid #e5e7eb;
+      font-size: 13px;
+    }
+    .plan.featured {
+      border-color: #2563eb;
+      box-shadow: 0 16px 30px rgba(37,99,235,0.15);
+    }
+
+    .contact-card {
+      max-width: 600px;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 14px;
+      border: 1px solid #e5e7eb;
+      margin-top: 18px;
+    }
+    .contact-card label {
+      font-size: 12px;
+      display: block;
+      margin-bottom: 4px;
+      color: #111827;
+    }
+    .contact-card input,
+    .contact-card textarea,
+    .contact-card select {
+      width: 100%;
+      padding: 7px 9px;
+      margin-bottom: 8px;
+      border-radius: 7px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #111827;
+      font-size: 12px;
+    }
+    .contact-card button {
+      width: 100%;
+      margin-top: 4px;
+    }
+
+    footer {
+      margin-top: 40px;
+      padding: 16px;
+      font-size: 11px;
+      color: #6b7280;
+      text-align: center;
+      border-top: 1px solid #e5e7eb;
+      background: #f9fafb;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-circle"></div>
+    <span>MadreseAI</span>
+  </div>
+  <nav style="display:flex; align-items:center;">
+    <a href="#features">امکانات</a>
+    <a href="#how">نحوه کار</a>
+    <a href="#quiz-demo">طراحی سوال</a>
+    <a href="#report-demo">کارنامه</a>
+    <a href="#pricing">قیمت‌ها</a>
+    <button class="btn-nav" onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})">
+      درخواست دمو
+    </button>
+  </nav>
+</header>
+
+<main>
+  <!-- Hero -->
+  <section class="hero">
+    <div>
+      <div class="badge">
+        <span class="badge-dot"></span>
+        چت‌بات والدین + طراحی سوال + کارنامه خوانا
+      </div>
+      <h1 class="hero-title">
+        تماس‌های تکراری دفتر را کم کنید،<br>
+        <span class="hero-highlight">زمان معلم‌ها و مدیر مدرسه را آزاد کنید.</span>
+      </h1>
+      <p class="hero-subtitle">
+        MadreseAI به سوالات پرتکرار والدین جواب می‌دهد، سوال‌های آزمون را از روی محتوای درسی می‌سازد و گزارش کارنامه را برای والدین قابل فهم می‌کند.
+      </p>
+      <div class="hero-buttons">
+        <button class="btn-primary" type="button"
+                onclick="document.querySelector('#demo-section').scrollIntoView({behavior:'smooth'})">
+          دیدن دمو چت‌بات
+        </button>
+        <button class="btn-outline" type="button"
+                onclick="document.getElementById('quiz-demo').scrollIntoView({behavior:'smooth'})">
+          دمو طراحی سوال
+        </button>
+        <button class="btn-outline" type="button"
+                onclick="document.getElementById('report-demo').scrollIntoView({behavior:'smooth'})">
+          دمو کارنامه و گزارش
+        </button>
+      </div>
+      <div class="hero-note">
+        <span class="chip">راه‌اندازی آزمایشی در کمتر از ۱ روز</span>
+        <span>بدون تعهد، قابل لغو در هر زمان</span>
+      </div>
+    </div>
+
+    <div class="hero-card">
+      <div class="hero-card-header">
+        <span>نمونه مکالمه والدین با چت‌بات مدرسه</span>
+        <span class="pill">بر اساس اطلاعات خود مدرسه</span>
+      </div>
+      <div class="hero-chat">
+        <div class="q">👤 والد: ساعت شروع مدرسه و زمان تحویل دانش‌آموزان چند است؟</div>
+        <div class="a">🤖 MadreseAI: کلاس‌ها از ساعت ۷:۳۰ شروع می‌شود. تحویل دانش‌آموزان از ۷:۰۰ تا ۷:۳۰ و پایان کلاس‌ها ۱۳:۳۰ است.</div>
+        <div class="q">👤 والد: غیبت امروز فرزندم را چطور باید اطلاع بدهم؟</div>
+        <div class="a">🤖 MadreseAI: لطفاً تا ساعت ۸:۰۰ با دفتر مدرسه تماس بگیرید یا فرم «اعلام غیبت» را در پنل اولیا تکمیل کنید.</div>
+      </div>
+      <div class="hero-card-header" style="margin-top:10px;">
+        <span>نمونه استفاده معلم از طراحی سوال</span>
+      </div>
+      <div class="hero-chat">
+        <div class="q">👩‍🏫 معلم: از فصل ۳ علوم ششم، ۵ سوال تستی و ۳ سوال تشریحی بساز.</div>
+        <div class="a">🤖 MadreseAI: ۸ سوال برای شما آماده شد. می‌توانید سوال‌ها را ویرایش کنید و در سامانه مدرسه استفاده کنید.</div>
+      </div>
+      <span class="demo-label">این فقط یک دمو است؛ نسخه نهایی مطابق محتوای مدرسه شما تنظیم می‌شود.</span>
+    </div>
+  </section>
+
+  <!-- Why schools love it -->
+  <section id="features" class="section">
+    <div class="section-header">
+      <div>
+        <h2>مدارس با MadreseAI چه به‌دست می‌آورند؟</h2>
+        <p>سه ماژول اصلی برای والدین، معلم‌ها و مدیر مدرسه.</p>
+      </div>
+    </div>
+    <div class="feature-grid">
+      <div class="feature">
+        <h3>چت‌بات برای والدین</h3>
+        <p>سوالات پرتکرار درباره ساعت‌ها، شهریه، سرویس، برنامه امتحان و ... در چند ثانیه پاسخ داده می‌شود و تلفن دفتر سبک‌تر می‌شود.</p>
+      </div>
+      <div class="feature">
+        <h3>طراحی سریع آزمون</h3>
+        <p>معلم متن کتاب یا جزوه را می‌دهد و در چند دقیقه مجموعه‌ای از سوالات تستی و تشریحی برای آزمون یا کوییز آماده می‌شود.</p>
+      </div>
+      <div class="feature">
+        <h3>گزارش خوانا برای والدین</h3>
+        <p>از روی نمرات خام، متن گزارش و کارنامه قابل فهم و محترمانه برای والدین تولید می‌شود تا وضعیت تحصیلی شفاف‌تر شود.</p>
+      </div>
+      <div class="feature">
+        <h3>استقرار روی سرور شما</h3>
+        <p>امکان اجرا روی سرور داخل ایران یا سرور مدرسه برای کنترل بهتر سرعت، حریم خصوصی و یکپارچگی با سامانه‌های موجود.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section id="how" class="section">
+    <div class="section-header">
+      <div>
+        <h2>راه‌اندازی MadreseAI برای یک مدرسه</h2>
+        <p>بدون نیاز به تیم فنی داخل مدرسه، در چند قدم ساده.</p>
+      </div>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div><span class="step-number">۱</span><strong>ثبت مدرسه</strong></div>
+        <p>نام مدرسه، وب‌سایت و اطلاعات تماس را می‌دهید؛ یک پنل اختصاصی برای مدرسه شما ساخته می‌شود.</p>
+      </div>
+      <div class="step">
+        <div><span class="step-number">۲</span><strong>بارگذاری اطلاعات</strong></div>
+        <p>سوالات متداول، آیین‌نامه‌ها، تقویم آموزشی و کتاب‌های درسی بر اساس پایه و رشته در سامانه بارگذاری می‌شود.</p>
+      </div>
+      <div class="step">
+        <div><span class="step-number">۳</span><strong>نصب چت‌بات و شروع استفاده</strong></div>
+        <p>یک اسکریپت کوتاه روی سایت مدرسه قرار می‌گیرد و والدین، معلم‌ها و دانش‌آموزان می‌توانند از چت‌بات و ابزارها استفاده کنند.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quiz generator intro -->
+  <section id="quiz" class="section">
+    <div class="section-header">
+      <div>
+        <h2>طراحی سوال خودکار برای معلم‌ها</h2>
+        <p>از متن کتاب، جزوه یا PDF، سوال تستی و تشریحی بسازید.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Demo: quiz generator -->
+  <section id="quiz-demo" class="section">
+    <div class="section-header">
+      <div>
+        <h2>نسخه نمایشی طراحی سوال</h2>
+        <p>در این دمو، نمونه‌ای از تولید سوال برای «علوم پایه ششم، فصل ۴» را می‌بینید.</p>
+      </div>
+    </div>
+
+    <div class="contact-card">
+      <p style="font-size:11px; color:#6b7280; margin-top:0; margin-bottom:8px;">
+        این بخش صرفاً برای نمایش تجربه کاربری است؛ خروجی نهایی در سامانه اصلی مدرسه شما تولید و ذخیره می‌شود.
+      </p>
+
+      <label>پایه تحصیلی</label>
+      <select id="quiz-grade">
+        <option value="1">پایه اول ابتدایی</option>
+        <option value="2">پایه دوم ابتدایی</option>
+        <option value="3">پایه سوم ابتدایی</option>
+        <option value="4">پایه چهارم ابتدایی</option>
+        <option value="5">پایه پنجم ابتدایی</option>
+        <option value="6" selected>پایه ششم ابتدایی</option>
+        <option value="7">پایه هفتم</option>
+        <option value="8">پایه هشتم</option>
+        <option value="9">پایه نهم</option>
+        <option value="10">پایه دهم</option>
+        <option value="11">پایه یازدهم</option>
+        <option value="12">پایه دوازدهم</option>
+      </select>
+
+      <div id="track-wrapper" style="display:none;">
+        <label>رشته تحصیلی (برای دهم تا دوازدهم)</label>
+        <select id="quiz-track">
+          <option value="math">ریاضی فیزیک</option>
+          <option value="exp">علوم تجربی</option>
+          <option value="hum">علوم انسانی</option>
+          <option value="tech">فنی و حرفه‌ای</option>
+          <option value="voc">کاردانش</option>
+        </select>
+      </div>
+
+      <label>درس</label>
+      <select id="quiz-subject"></select>
+
+      <label>فصل</label>
+      <select id="quiz-chapter">
+        <option value="1">فصل ۱</option>
+        <option value="2">فصل ۲</option>
+        <option value="3">فصل ۳</option>
+        <option value="4" selected>فصل ۴</option>
+        <option value="5">فصل ۵</option>
+        <option value="6">فصل ۶</option>
+        <option value="7">فصل ۷</option>
+        <option value="8">فصل ۸</option>
+      </select>
+
+      <label>نوع سوال</label>
+      <select id="quiz-qtype">
+        <option value="mcq">چندگزینه‌ای (تستی)</option>
+        <option value="tf">درست / غلط</option>
+        <option value="short">تشریحی کوتاه</option>
+      </select>
+
+      <label>تعداد سوال</label>
+      <input type="number" id="quiz-count" value="3" min="1" max="10" />
+
+      <button class="btn-primary" type="button" onclick="generateDemoQuiz()" style="margin-top:8px;">
+        تولید سوال نمونه
+      </button>
+
+      <div id="quiz-result" style="margin-top:12px; font-size:13px; color:#374151; white-space:pre-line;"></div>
+    </div>
+  </section>
+
+  <!-- Simple chatbot demo block -->
+  <section id="demo-section" class="section">
+    <div class="section-header">
+      <div>
+        <h2>نسخه نمایشی چت‌بات MadreseAI</h2>
+        <p>یک سوال درباره «مدرسه نمونه» بپرسید؛ پاسخ‌ها از روی پایگاه سؤال و جواب داخلی مدرسه داده می‌شود.</p>
+      </div>
+    </div>
+
+    <div class="contact-card">
+      <p style="font-size:11px; color:#6b7280; margin-top:0; margin-bottom:8px;">
+        این چت‌بات فقط نمونه است؛ در نسخه واقعی، پاسخ‌ها بر اساس اطلاعات مدرسه شما تولید می‌شود.
+      </p>
+      <label>سوال شما</label>
+      <input id="bot-question" type="text" placeholder="مثلاً: ساعت شروع مدرسه چند است؟" />
+      <button class="btn-primary" type="button" onclick="askDemoBot()">ارسال سوال</button>
+
+      <div id="bot-result" style="margin-top:10px; font-size:13px; color:#374151;"></div>
+    </div>
+  </section>
+
+  <!-- Demo: report / grade -->
+  <section id="report-demo" class="section">
+    <div class="section-header">
+      <div>
+        <h2>نسخه نمایشی کارنامه و گزارش</h2>
+        <p>شبیه‌سازی فرم مشاهده کارنامه برای والدین.</p>
+      </div>
+    </div>
+
+    <div class="contact-card">
+      <p style="font-size:11px; color:#6b7280; margin-top:0; margin-bottom:8px;">
+        در نسخه دمو، برای هر نام و کد ملی یک کارنامه نمونه ثابت نمایش داده می‌شود.
+      </p>
+
+      <label>نام دانش‌آموز</label>
+      <input type="text" id="report-name" placeholder="مثلاً: علی رضایی" />
+
+      <label>کد ملی دانش‌آموز</label>
+      <input type="text" id="report-nid" placeholder="مثلاً: ۰۰۱۲۳۴۵۶۷۸" />
+
+      <div id="report-table-wrapper" style="font-size:12px; margin-bottom:10px; display:none;">
+        <p style="margin-bottom:4px;"><strong>کارنامه نمونه برای پایه ششم ابتدایی</strong></p>
+        <table style="width:100%; border-collapse:collapse; font-size:12px;">
+          <thead>
+            <tr style="background:#f3f4f6;">
+              <th style="border:1px solid #e5e7eb; padding:4px;">درس</th>
+              <th style="border:1px solid #e5e7eb; padding:4px;">نمره</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="border:1px solid #e5e7eb; padding:4px;">ریاضی</td>
+              <td style="border:1px solid #e5e7eb; padding:4px;">۱۸</td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #e5e7eb; padding:4px;">علوم</td>
+              <td style="border:1px solid #e5e7eb; padding:4px;">۱۷</td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #e5e7eb; padding:4px;">فارسی</td>
+              <td style="border:1px solid #e5e7eb; padding:4px;">۱۹</td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #e5e7eb; padding:4px;">قرآن و هدیه‌ها</td>
+              <td style="border:1px solid #e5e7eb; padding:4px;">۲۰</td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #e5e7eb; padding:4px;">انضباط</td>
+              <td style="border:1px solid #e5e7eb; padding:4px;">۲۰</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="margin-top:6px;">حضور در کلاس: <strong>۹۵٪</strong></p>
+      </div>
+
+      <button class="btn-primary" type="button" onclick="generateDemoReport()">
+        مشاهده کارنامه نمونه و متن گزارش
+      </button>
+
+      <div id="report-result" style="margin-top:12px; font-size:13px; color:#374151; white-space:pre-line;"></div>
+    </div>
+  </section>
+
+  <!-- Pricing + contact -->
+  <section id="pricing" class="section">
+    <div class="section-header">
+      <div>
+        <h2>پلن‌های پیشنهادی MadreseAI</h2>
+        <p>قیمت‌ها نمونه هستند و در جلسه دمو بر اساس شرایط مدرسه شما تنظیم می‌شوند.</p>
+      </div>
+    </div>
+    <div class="pricing-grid">
+      <div class="plan">
+        <h3>پلن پایه</h3>
+        <div class="plan-price">X تومان / ماه</div>
+        <small>مناسب مدارس کوچک</small>
+        <ul>
+          <li>۱ مدرسه</li>
+          <li>تا ۵۰ صفحه / فایل در پایگاه دانش</li>
+          <li>تا ۵۰۰ چت در ماه</li>
+          <li>ماژول طراحی سوال با محدودیت تولید</li>
+        </ul>
+      </div>
+      <div class="plan featured">
+        <h3>پلن حرفه‌ای</h3>
+        <div class="plan-price">Y تومان / ماه</div>
+        <small>برای مدارس پرجمعیت یا غیرانتفاعی</small>
+        <ul>
+          <li>۱ مدرسه</li>
+          <li>تا ۳۰۰ صفحه / فایل</li>
+          <li>تا ۵۰۰۰ چت در ماه</li>
+          <li>ماژول کامل طراحی سوال</li>
+          <li>گزارش‌های تحلیلی سوالات والدین</li>
+        </ul>
+      </div>
+      <div class="plan">
+        <h3>پلن اختصاصی</h3>
+        <div class="plan-price">توافقی</div>
+        <small>برای مجموعه مدارس یا سازمان‌ها</small>
+        <ul>
+          <li>چند مدرسه روی یک پنل</li>
+          <li>محدودیت چت و فایل قابل تنظیم</li>
+          <li>اتصال به سامانه‌های داخلی</li>
+        </ul>
+      </div>
+    </div>
+  </section
+      
+      <!-- فقط بخش جدید FAQ + جای درستش در کل فایل را می‌بینی -->
+
+  <!-- FAQ for school principals -->
+  <section id="faq" class="section">
+    <div class="section-header">
+      <div>
+        <h2>سؤال‌های متداول مدیران مدارس</h2>
+        <p>چند سؤال رایج که معمولاً مدیران در جلسه دمو می‌پرسند.</p>
+      </div>
+    </div>
+    <div class="contact-card" style="max-width:800px;">
+      <div style="margin-bottom:12px;">
+        <strong>۱. اطلاعات مدرسه از کجا وارد می‌شود؟</strong>
+        <p style="margin:4px 0 0; font-size:13px; color:#4b5563;">
+          در شروع کار، فایل‌های PDF، آیین‌نامه‌ها، تقویم آموزشی و سوالات پرتکرار را از مدرسه دریافت می‌کنیم و پس از تایید شما در سامانه بارگذاری می‌شود.
+        </p>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <strong>۲. آیا اطلاعات والدین و دانش‌آموزان محرمانه می‌ماند؟</strong>
+        <p style="margin:4px 0 0; font-size:13px; color:#4b5563;">
+          بله. MadreseAI می‌تواند روی سرور مدرسه یا سرور داخل ایران نصب شود و دسترسی به داده‌ها طبق سیاست محرمانگی مدرسه تنظیم می‌شود.
+        </p>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <strong>۳. آیا لازم است مدرسه تیم IT یا برنامه‌نویس داشته باشد؟</strong>
+        <p style="margin:4px 0 0; font-size:13px; color:#4b5563;">
+          خیر. نصب، پیکربندی و به‌روزرسانی توسط تیم فنی MadreseAI انجام می‌شود و مدرسه فقط یک نفر رابط برای هماهنگی محتوای آموزشی معرفی می‌کند.
+        </p>
+      </div>
+
+      <div style="margin-bottom:4px;">
+        <strong>۴. اگر مدرسه بعد از مدتی نخواست ادامه دهد چه می‌شود؟</strong>
+        <p style="margin:4px 0 0; font-size:13px; color:#4b5563;">
+          قراردادها ماهانه یا فصلی هستند و در صورت عدم تمایل به ادامه، با اعلام قبلی قابل لغو هستند و دسترسی‌ها به صورت امن جمع‌بندی می‌شود.
+        </p>
+      </div>
+    </div>
+  </section>
+
+    <section id="contact" class="section">
+    <div class="section-header">
+      <div>
+        <h2>درخواست دمو برای مدرسه شما</h2>
+        <p>فرم زیر را پر کنید تا برای هماهنگی نسخه آزمایشی MadreseAI با شما تماس گرفته شود.</p>
+      </div>
+    </div>
+    <div class="contact-card">
+      <form>
+        <label>نام مدرسه</label>
+        <input type="text" placeholder="مثلاً: دبیرستان غیرانتفاعی نمونه" />
+        <label>نام و نام خانوادگی مسئول</label>
+        <input type="text" placeholder="مثلاً: علی رضایی – مدیر مدرسه" />
+        <label>شماره تماس</label>
+        <input type="text" placeholder="شماره موبایل یا تلفن ثابت" />
+        <label>توضیح کوتاه</label>
+        <textarea rows="3" placeholder="مثلاً: بیشتر دنبال کاهش تماس‌های دفتر و طراحی آزمون هستیم."></textarea>
+        <button class="btn-primary" type="submit">ارسال درخواست دمو</button>
+      </form>
+      <p style="font-size:11px; color:#6b7280; margin-top:8px;">
+        با ارسال این فرم، فقط برای هماهنگی دمو با شما تماس گرفته می‌شود و هیچ تعهدی برای خرید وجود ندارد.
+      </p>
+    </div>
+  </section>
+</main>
+
+<footer>
+    © ۱۴۰۴ <strong>MadreseAI.com</strong> – دستیار هوشمند مدارس ایران
+  </footer>
+
+<script>
+  const SUBJECTS_CONFIG = {
+    primary: ["علوم تجربی", "ریاضی", "فارسی", "قرآن"],
+    middle: ["علوم تجربی", "ریاضی", "فارسی", "قرآن", "دینی", "تاریخ", "جغرافی", "زبان انگلیسی", "عربی"],
+    tracks: {
+      math: ["ریاضیات", "آمار و احتمالات", "شیمی", "مثلثات", "فیزیک", "فارسی", "تاریخ", "عربی", "زبان انگلیسی", "زمین شناسی", "قرآن"],
+      exp:  ["ریاضیات", "آمار و احتمالات", "شیمی", "زیست شناسی", "فیزیک", "فارسی", "تاریخ", "عربی", "زبان انگلیسی", "زمین شناسی", "قرآن"],
+      hum:  ["ریاضیات", "فارسی", "تاریخ", "جغرافی", "علوم اجتماعی", "عربی", "زبان انگلیسی", "منطق/فلسفه", "قرآن"],
+      tech: ["ریاضیات", "فیزیک پایه", "فارسی", "زبان انگلیسی", "دروس تخصصی فنی", "قرآن"],
+      voc:  ["ریاضیات", "فارسی", "زبان انگلیسی", "دروس تخصصی کاردانش", "قرآن"]
+    }
+  };
+
+  let currentQuizData = null;
+  let currentReportData = null;
+
+  function fillSubjects() {
+    const gradeEl = document.getElementById("quiz-grade");
+    const trackWrapper = document.getElementById("track-wrapper");
+    const trackEl = document.getElementById("quiz-track");
+    const subjectEl = document.getElementById("quiz-subject");
+
+    const grade = parseInt(gradeEl.value, 10);
+
+    let subjects = [];
+
+    if (grade >= 1 && grade <= 6) {
+      trackWrapper.style.display = "none";
+      subjects = SUBJECTS_CONFIG.primary;
+    } else if (grade >= 7 && grade <= 9) {
+      trackWrapper.style.display = "none";
+      subjects = SUBJECTS_CONFIG.middle;
+    } else {
+      trackWrapper.style.display = "block";
+      const track = trackEl.value || "math";
+      subjects = SUBJECTS_CONFIG.tracks[track] || [];
+    }
+
+    subjectEl.innerHTML = "";
+    subjects.forEach((s) => {
+      const opt = document.createElement("option");
+      opt.value = s;
+      opt.textContent = s;
+      if (grade === 6 && s === "علوم تجربی") opt.selected = true;
+      subjectEl.appendChild(opt);
+    });
+  }
+
+  async function askDemoBot() {
+    const input = document.getElementById("bot-question");
+    const resultDiv = document.getElementById("bot-result");
+    const question = (input.value || "").trim();
+
+    if (!question) {
+      resultDiv.textContent = "لطفاً ابتدا سوال خود را وارد کنید.";
+      return;
+    }
+
+    resultDiv.textContent = "در حال دریافت پاسخ...";
+
+    try {
+      const response = await fetch("/api/sample-school/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: question })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        resultDiv.textContent = data.error || "خطایی رخ داد. لطفاً بعداً دوباره تلاش کنید.";
+        return;
+      }
+
+      resultDiv.textContent = data.answer || "پاسخی یافت نشد.";
+    } catch (e) {
+      resultDiv.textContent = "اتصال به سرور برقرار نشد.";
+    }
+  }
+
+  async function generateDemoQuiz() {
+    const gradeEl = document.getElementById("quiz-grade");
+    const trackEl = document.getElementById("quiz-track");
+    const subjectEl = document.getElementById("quiz-subject");
+    const chapterEl = document.getElementById("quiz-chapter");
+    const qtypeEl = document.getElementById("quiz-qtype");
+    const countEl = document.getElementById("quiz-count");
+    const resultDiv = document.getElementById("quiz-result");
+
+    const grade = gradeEl.value;
+    const track = (parseInt(grade,10) >= 10 ? trackEl.value : null);
+    const subject = subjectEl.value;
+    const chapter = chapterEl.value;
+    const qtype = qtypeEl.value;
+    const count = parseInt(countEl.value || "3", 10);
+
+    resultDiv.textContent = "در حال تولید سوال‌ها...";
+
+    try {
+      const response = await fetch("/api/demo/quiz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grade: grade,
+          subject: subject,
+          chapter: chapter,
+          qtype: qtype,
+          count: count,
+          track: track
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        resultDiv.textContent = data.error || "خطایی در تولید سوال‌ها رخ داد.";
+        return;
+      }
+
+      if (!data.questions || data.questions.length === 0) {
+        resultDiv.textContent = "سوالی تولید نشد.";
+        return;
+      }
+
+      currentQuizData = {
+        grade: grade,
+        subject: subject,
+        chapter: chapter,
+        qtype: qtype,
+        questions: data.questions
+      };
+
+      let text = "";
+      data.questions.forEach((q, idx) => {
+        const num = idx + 1;
+        text += `سوال ${num}:\n${q.question}\n`;
+        if (q.type === "mcq" && q.options) {
+          q.options.forEach((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            text += `  ${letter}) ${opt}\n`;
+          });
+          text += `پاسخ نمونه: ${q.answer}\n`;
+        } else if (q.type === "tf") {
+          text += `پاسخ نمونه: ${q.answer}\n`;
+        }
+        text += "\n";
+      });
+
+      resultDiv.textContent = text;
+    } catch (e) {
+      resultDiv.textContent = "اتصال به سرور برقرار نشد.";
+    }
+  }
+
+  async function generateDemoReport() {
+    const nameEl = document.getElementById("report-name");
+    const nidEl = document.getElementById("report-nid");
+    const tableWrapper = document.getElementById("report-table-wrapper");
+    const resultDiv = document.getElementById("report-result");
+
+    const name = (nameEl.value || "").trim();
+    const nid = (nidEl.value || "").trim();
+
+    if (!name) {
+      resultDiv.textContent = "لطفاً نام دانش‌آموز را وارد کنید.";
+      return;
+    }
+    if (!nid) {
+      resultDiv.textContent = "لطفاً کد ملی دانش‌آموز را وارد کنید.";
+      return;
+    }
+
+    tableWrapper.style.display = "block";
+    resultDiv.textContent = "در حال تولید متن گزارش...";
+
+    try {
+      const response = await fetch("/api/demo/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name,
+          national_id: nid,
+          grade: "۶ ابتدایی",
+          scores: {
+            "ریاضی": 18,
+            "علوم": 17,
+            "فارسی": 19,
+            "قرآن و هدیه‌ها": 20,
+            "انضباط": 20
+          },
+          attendance_percent: 95
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        resultDiv.textContent = data.error || "خطایی در تولید گزارش رخ داد.";
+        return;
+      }
+
+      currentReportData = {
+        name: name,
+        national_id: nid,
+        grade: "۶ ابتدایی",
+        report: data.report,
+        scores: { "ریاضی": 18, "علوم": 17, "فارسی": 19, "قرآن و هدیه‌ها": 20, "انضباط": 20 },
+        attendance: 95
+      };
+
+      resultDiv.textContent = data.report || "گزارشی تولید نشد.";
+    } catch (e) {
+      resultDiv.textContent = "اتصال به سرور برقرار نشد.";
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    fillSubjects();
+
+    document.getElementById("quiz-grade").addEventListener("change", fillSubjects);
+    document.getElementById("quiz-track").addEventListener("change", fillSubjects);
+
+    const input = document.getElementById("bot-question");
+    if (input) {
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          askDemoBot();
+        }
+      });
+    }
+  });
+</script>
+
+</body>
+</html>
