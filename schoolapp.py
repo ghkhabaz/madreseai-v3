@@ -120,9 +120,7 @@ def load_book_text(grade: str, subject: str, chapter: str) -> str:
     """
     خواندن متن فصل از فایل.
     در نسخه دمو، فقط برای «پایه ۶، علوم تجربی، فصل ۴» فایل داریم.
-    بقیه ترکیب‌ها فعلاً خالی است تا بعداً اضافه شوند.
     """
-    # نرمال‌سازی ساده نام درس
     subject = (subject or "").strip()
     subject_norm = subject.replace(" ", "")
     is_science_grade6 = (
@@ -145,15 +143,11 @@ def load_book_text(grade: str, subject: str, chapter: str) -> str:
 
 
 def generate_demo_questions_from_text(text: str, qtype: str, count: int = 3):
-    """
-    تولید چند سوال دمو از روی متن، با تنوع بیشتر در قالب سوال‌ها.
-    هنوز هوش مصنوعی واقعی نیست، فقط تنوع نمایشی برای مدیران.
-    """
+    """تولید چند سوال دمو از روی متن."""
     text = (text or "").strip()
     if not text:
         return []
 
-    # تکه‌های کوتاه از متن برای استفاده در سوال
     t_short = (text[:120] + "…") if len(text) > 120 else text
     mid_start = max(0, len(text) // 3)
     t_mid = (text[mid_start: mid_start + 120] + "…") if len(text) > mid_start + 40 else text
@@ -164,53 +158,34 @@ def generate_demo_questions_from_text(text: str, qtype: str, count: int = 3):
         if qtype == "mcq":
             templates = [
                 f"بر اساس متن زیر، کدام گزینه درست است؟\n«{t_short}»",
-                f"از متن زیر، بهترین توصیف برای مفهوم اصلی کدام است؟\n«{t_mid}»",
-                f"بر اساس توضیحات فصل، کدام گزینه مثال بهتری از مفهوم گفته‌شده است؟"
+                f"از متن زیر، بهترین توصیف برای مفهوم اصلی کدام است؟\n«{t_mid}»"
             ]
             q_text = random.choice(templates)
-
-            option_templates = [
-                ["مثال درست از مفهوم اصلی متن", "مثال کم‌ربط", "گزینه نادرست", "گزینه نامرتبط"],
-                ["توضیح کامل و صحیح", "توضیح ناقص", "توضیح اشتباه", "توضیح بی‌ربط"],
-                ["تعریف دقیق", "تعریف ناقص", "تعریف اشتباه", "تعریف غیرعلمی"]
-            ]
-            opts = random.choice(option_templates)
-
+            opts = ["مثال درست", "مثال نادرست", "گزینه غلط", "گزینه نامرتبط"]
             questions.append({
                 "type": "mcq",
-                "question": f"سوال تستی شماره {i}: {q_text}",
+                "question": f"سوال تستی {i}: {q_text}",
                 "options": opts,
                 "answer": opts[0]
             })
 
         elif qtype == "tf":
-            templates = [
-                "در این فصل درباره حالت‌های مختلف مواد صحبت شده است.",
-                "در این فصل، دانش‌آموز فقط باید نام مواد را حفظ کند و نیازی به مثال زدن ندارد.",
-                "در این فصل، دانش‌آموز با مفاهیم تبخیر و میعان آشنا می‌شود."
-            ]
+            templates = ["در این فصل درباره حالت‌های ماده صحبت شده است."]
             base = random.choice(templates)
             q_text = f"جمله زیر بر اساس متن فصل صحیح است؟\n«{base}»"
-            # جمله دوم عمداً غلط در نظر گرفته می‌شود
-            answer = "غلط" if "فقط باید نام مواد را حفظ کند" in base else "درست"
-
+            answer = "درست"
             questions.append({
                 "type": "tf",
-                "question": f"سوال درست/غلط شماره {i}: {q_text}",
+                "question": f"سوال درست/غلط {i}: {q_text}",
                 "answer": answer
             })
 
         else:  # short
-            templates = [
-                "با توجه به فصل، توضیح دهید چه تفاوتی بین جامد، مایع و گاز وجود دارد.",
-                "یک مثال از هر کدام از حالت‌های ماده (جامد، مایع، گاز) بنویسید.",
-                "بر اساس آنچه در این فصل خوانده‌اید، یک پاراگراف کوتاه درباره تغییر حالت‌های ماده بنویسید."
-            ]
+            templates = ["توضیح دهید چه تفاوتی بین حالت‌های ماده وجود دارد."]
             q_text = random.choice(templates)
-
             questions.append({
                 "type": "short",
-                "question": f"سوال تشریحی شماره {i}: {q_text}",
+                "question": f"سوال تشریحی {i}: {q_text}",
                 "answer": ""
             })
 
@@ -219,19 +194,7 @@ def generate_demo_questions_from_text(text: str, qtype: str, count: int = 3):
 
 @app.route("/api/demo/quiz", methods=["POST"])
 def demo_quiz():
-    """
-    دمو طراحی سوال:
-    ورودی JSON مثل:
-    {
-      "grade": "6",
-      "subject": "علوم تجربی",
-      "chapter": "4",
-      "qtype": "mcq",
-      "count": 3,
-      "track": "math" | null
-    }
-    در نسخه دمو، فقط ترکیب پایه ۶، علوم، فصل ۴ پشتیبانی واقعی می‌شود.
-    """
+    """دمو طراحی سوال."""
     data = request.get_json(silent=True) or {}
     grade = str(data.get("grade", "6"))
     subject = data.get("subject", "علوم تجربی")
@@ -239,92 +202,62 @@ def demo_quiz():
     qtype = data.get("qtype", "mcq")
     count = int(data.get("count", 3) or 3)
 
-    # خواندن متن فصل (فقط برای ترکیب دمو)
     text = load_book_text(grade, subject, chapter)
     if not text:
         return jsonify({
-            "error": "برای این پایه/درس/فصل در نسخه نمایشی فعلی محتوایی ثبت نشده است. "
-                     "در این دمو فقط «علوم پایه ششم، فصل ۴» فعال است.",
+            "error": "فقط «علوم پایه ششم، فصل ۴» در دمو فعال است.",
             "questions": []
         }), 400
 
     questions = generate_demo_questions_from_text(text, qtype, count)
     return jsonify({
-        "grade": grade,
-        "subject": subject,
-        "chapter": chapter,
-        "qtype": qtype,
-        "count": len(questions),
-        "questions": questions
+        "grade": grade, "subject": subject, "chapter": chapter,
+        "qtype": qtype, "count": len(questions), "questions": questions
     })
 
 
-# ---------- ماژول دمو کارنامه / گزارش ----------
+# ---------- ماژول دمو کارنامه ----------
 
 def build_demo_report(name: str, grade: str, scores: dict, attendance_percent: int) -> str:
-    """
-    تولید یک متن گزارش ساده بر اساس نمرات.
-    بعداً این بخش را می‌توان با مدل هوش مصنوعی جایگزین کرد.
-    """
+    """تولید متن گزارش ساده."""
     name = name or "دانش‌آموز"
-    grade = grade or ""
-    scores = scores or {}
+    strong = [s for s, v in scores.items() if v >= 18]
+    weak = [s for s, v in scores.items() if v < 14]
 
-    strong_subjects = [s for s, v in scores.items() if v >= 18]
-    mid_subjects = [s for s, v in scores.items() if 14 <= v < 18]
-    weak_subjects = [s for s, v in scores.items() if v < 14]
-
-    lines = []
-
-    lines.append(f"ولی محترم {name}،")
-    lines.append(f"این گزارش بر اساس عملکرد {name} در پایه {grade} تنظیم شده است.\n")
-
-    if strong_subjects:
-        strong_list = "، ".join(strong_subjects)
-        lines.append(f"- در درس‌های {strong_list} عملکرد بسیار خوبی داشته و نشان می‌دهد مفاهیم را به خوبی درک کرده است.")
-    if mid_subjects:
-        mid_list = "، ".join(mid_subjects)
-        lines.append(f"- در درس‌های {mid_list} سطح عملکرد خوب است، اما با کمی تمرین بیشتر می‌تواند به سطح عالی برسد.")
-    if weak_subjects:
-        weak_list = "، ".join(weak_subjects)
-        lines.append(f"- در درس‌های {weak_list} نیاز به توجه و همراهی بیشتری وجود دارد. پیشنهاد می‌شود با معلم مربوطه برای برنامه جبرانی هماهنگ کنید.")
-
-    lines.append(f"- حضور {name} در کلاس‌ها حدود {attendance_percent}٪ بوده است. حضور منظم تاثیر مستقیم در پیشرفت درسی دارد.")
-
-    lines.append("\nبه طور کلی، روند پیشرفت {0} مثبت ارزیابی می‌شود و با ادامه همراهی شما و تلاش دانش‌آموز، می‌توان انتظار نتایج بهتر در ماه‌های آینده را داشت.".format(name))
+    lines = [
+        f"ولی محترم {name}،",
+        f"عملکرد {name} در پایه {grade} بررسی شد.",
+    ]
+    
+    if strong:
+        lines.append(f"- درس‌های {', '.join(strong)}: عالی")
+    if weak:
+        lines.append(f"- درس‌های {', '.join(weak)}: نیاز به تمرین")
+    
+    lines.append(f"- حضور: {attendance_percent}%")
+    lines.append("روند کلی مثبت است.")
 
     return "\n".join(lines)
 
 
 @app.route("/api/demo/report", methods=["POST"])
 def demo_report():
-    """
-    دمو تولید گزارش/کارنامه.
-    ورودی JSON مثل:
-    {
-      "name": "علی نمونه",
-      "grade": "۶ ابتدایی",
-      "scores": {"ریاضی": 18, ...},
-      "attendance_percent": 95
-    }
-    """
+    """دمو تولید گزارش."""
     data = request.get_json(silent=True) or {}
     name = data.get("name", "")
-    grade = data.get("grade", "")
-    scores = data.get("scores", {})
-    attendance_percent = int(data.get("attendance_percent", 0) or 0)
-
     if not name:
-        return jsonify({"error": "نام دانش‌آموز مشخص نشده است."}), 400
+        return jsonify({"error": "نام دانش‌آموز لازم است."}), 400
 
-    report_text = build_demo_report(name, grade, scores, attendance_percent)
+    report_text = build_demo_report(
+        name, data.get("grade", ""), 
+        data.get("scores", {}), 
+        int(data.get("attendance_percent", 0))
+    )
 
     return jsonify({
-        "name": name,
-        "grade": grade,
-        "scores": scores,
-        "attendance_percent": attendance_percent,
-        "report": report_text
+        "name": name, "report": report_text,
+        "scores": data.get("scores", {}),
+        "attendance_percent": int(data.get("attendance_percent", 0))
     })
 
 
