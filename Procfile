@@ -1,1 +1,1 @@
-web: python schoolapp.py
+web: gunicorn schoolapp:app
