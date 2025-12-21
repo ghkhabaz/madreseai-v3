@@ -124,9 +124,9 @@ def load_book_text(grade: str, subject: str, chapter: str) -> str:
     subject = (subject or "").strip()
     subject_norm = subject.replace(" ", "")
     is_science_grade6 = (
-        grade == "6" and
-        ("علوم" in subject or "science" in subject_norm) and
-        chapter == "4"
+        grade == "6"
+        and ("علوم" in subject or "science" in subject_norm)
+        and chapter == "4"
     )
 
     if is_science_grade6:
@@ -211,34 +211,62 @@ def demo_quiz():
 
     questions = generate_demo_questions_from_text(text, qtype, count)
     return jsonify({
-        "grade": grade, "subject": subject, "chapter": chapter,
-        "qtype": qtype, "count": len(questions), "questions": questions
+        "grade": grade,
+        "subject": subject,
+        "chapter": chapter,
+        "qtype": qtype,
+        "count": len(questions),
+        "questions": questions
     })
 
 
 # ---------- ماژول دمو کارنامه ----------
 
 def build_demo_report(name: str, grade: str, scores: dict, attendance_percent: int) -> str:
-    """تولید متن گزارش ساده."""
+    """
+    تولید یک متن گزارش ساده بر اساس نمرات.
+    بعداً این بخش را می‌توان با مدل هوش مصنوعی جایگزین کرد.
+    """
     name = name or "دانش‌آموز"
-    strong = [s for s, v in scores.items() if v >= 18]
-    weak = [s for s, v in scores.items() if v < 14]
+    grade = grade or ""
+    scores = scores or {}
 
-    lines = [
-        lines.append(f"ولی محترم {name}،")
+    strong_subjects = [s for s, v in scores.items() if v >= 18]
+    mid_subjects = [s for s, v in scores.items() if 14 <= v < 18]
+    weak_subjects = [s for s, v in scores.items() if v < 14]
+
+    lines = []
+
+    lines.append(f"ولی محترم {name}،")
+    lines.append(
+        f"این گزارش بر اساس عملکرد {name} در پایه {grade} در دبستان غیرانتفاعی پویا تنظیم شده است.\n"
+    )
+
+    if strong_subjects:
+        strong_list = "، ".join(strong_subjects)
         lines.append(
-    f"این گزارش بر اساس عملکرد {name} در پایه {grade} در دبستان غیرانتفاعی پویا تنظیم شده است.\n"
-)
+            f"- در درس‌های {strong_list} عملکرد بسیار خوبی داشته و نشان می‌دهد مفاهیم را به خوبی درک کرده است."
+        )
+    if mid_subjects:
+        mid_list = "، ".join(mid_subjects)
+        lines.append(
+            f"- در درس‌های {mid_list} سطح عملکرد خوب است، اما با کمی تمرین بیشتر می‌تواند به سطح عالی برسد."
+        )
+    if weak_subjects:
+        weak_list = "، ".join(weak_subjects)
+        lines.append(
+            f"- در درس‌های {weak_list} نیاز به توجه و همراهی بیشتری وجود دارد. پیشنهاد می‌شود با معلم مربوطه برای برنامه جبرانی هماهنگ کنید."
+        )
 
-    ]
-    
-    if strong:
-        lines.append(f"- درس‌های {', '.join(strong)}: عالی")
-    if weak:
-        lines.append(f"- درس‌های {', '.join(weak)}: نیاز به تمرین")
-    
-    lines.append(f"- حضور: {attendance_percent}%")
-    lines.append("روند کلی مثبت است.")
+    lines.append(
+        f"- حضور {name} در کلاس‌ها حدود {attendance_percent}٪ بوده است. حضور منظم تاثیر مستقیم در پیشرفت درسی دارد."
+    )
+
+    lines.append(
+        "\nبه طور کلی، روند پیشرفت {0} مثبت ارزیابی می‌شود و با ادامه همراهی شما و تلاش دانش‌آموز، می‌توان انتظار نتایج بهتر در ماه‌های آینده را داشت.".format(
+            name
+        )
+    )
 
     return "\n".join(lines)
 
@@ -248,23 +276,24 @@ def demo_report():
     """دمو تولید گزارش."""
     data = request.get_json(silent=True) or {}
     name = data.get("name", "")
+    grade = data.get("grade", "")
+    scores = data.get("scores", {})
+    attendance_percent = int(data.get("attendance_percent", 0) or 0)
+
     if not name:
         return jsonify({"error": "نام دانش‌آموز لازم است."}), 400
 
-    report_text = build_demo_report(
-        name, data.get("grade", ""), 
-        data.get("scores", {}), 
-        int(data.get("attendance_percent", 0))
-    )
+    report_text = build_demo_report(name, grade, scores, attendance_percent)
 
     return jsonify({
-        "name": name, "report": report_text,
-        "scores": data.get("scores", {}),
-        "attendance_percent": int(data.get("attendance_percent", 0))
+        "name": name,
+        "grade": grade,
+        "scores": scores,
+        "attendance_percent": attendance_percent,
+        "report": report_text
     })
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
-
