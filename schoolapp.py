@@ -225,8 +225,11 @@ def build_demo_report(name: str, grade: str, scores: dict, attendance_percent: i
     weak = [s for s, v in scores.items() if v < 14]
 
     lines = [
-        f"ولی محترم {name}،",
-        f"عملکرد {name} در پایه {grade} بررسی شد.",
+        lines.append(f"ولی محترم {name}،")
+        lines.append(
+    f"این گزارش بر اساس عملکرد {name} در پایه {grade} در دبستان غیرانتفاعی پویا تنظیم شده است.\n"
+)
+
     ]
     
     if strong:
