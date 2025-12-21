@@ -35,7 +35,7 @@ def simple_faq_match(faqs, question: str):
     - از روی keywords و tags برای هر FAQ امتیاز حساب می‌کند.
     - هر کلمه‌کلیدی که در سوال باشد: +1
     - هر تگی که در سوال باشد: +2 (چون خاص‌تر است)
-    - FAQ با بیشترین امتیاز انتخاب می‌شود؛ اگر امتیاز=0 باشد، None برمی‌گردد.
+    - FAQ با بیشترین امتیاز انتخاب می‌شود؛ اگر امتیاز = 0 باشد، None برمی‌گردد.
     """
     question = (question or "").strip()
     if not question:
@@ -52,13 +52,11 @@ def simple_faq_match(faqs, question: str):
 
         score = 0
 
-        # امتیاز برای کلمات کلیدی
         for kw in keywords:
             kw_norm = (kw or "").strip().lower()
             if kw_norm and kw_norm in normalized_q:
                 score += 1
 
-        # امتیاز برای تگ‌ها (وزن بیشتر)
         for tag in tags:
             tag_norm = (tag or "").strip().lower()
             if tag_norm and tag_norm in normalized_q:
@@ -220,7 +218,7 @@ def demo_quiz():
     })
 
 
-# ---------- ماژول دمو کارنامه ----------
+# ---------- ماژول دمو کارنامه (متن توضیحی) ----------
 
 def build_demo_report(name: str, grade: str, scores: dict, attendance_percent: int) -> str:
     """
@@ -273,7 +271,7 @@ def build_demo_report(name: str, grade: str, scores: dict, attendance_percent: i
 
 @app.route("/api/demo/report", methods=["POST"])
 def demo_report():
-    """دمو تولید گزارش."""
+    """دمو تولید گزارش متنی."""
     data = request.get_json(silent=True) or {}
     name = data.get("name", "")
     grade = data.get("grade", "")
@@ -292,6 +290,38 @@ def demo_report():
         "attendance_percent": attendance_percent,
         "report": report_text
     })
+
+
+# ---------- صفحه نمایشی کارنامه شبیه فرم رسمی ----------
+
+@app.route("/demo/report-card")
+def demo_report_card():
+    """
+    صفحه HTML دمو کارنامه شبیه فرم رسمی.
+    داده‌های نمونه برای یک دانش‌آموز دبستان پویا را به قالب می‌فرستد.
+    """
+    sample_data = {
+        "student_name": "علی نمونه",
+        "student_code": "۱۲۳۴۵۶۷",
+        "grade_title": "پایه ششم ابتدایی",
+        "school_name": "دبستان غیرانتفاعی پویا",
+        "year_title": "سال تحصیلی ۱۴۰۳-۱۴۰۴",
+        "total_units": 23,
+        "total_score": 460,
+        "avg_score": 20,
+        "attendance_percent": 95,
+        "courses": [
+            {"name": "ریاضی", "unit": 3, "score": 20},
+            {"name": "علوم تجربی", "unit": 3, "score": 20},
+            {"name": "فارسی", "unit": 3, "score": 20},
+            {"name": "قرآن و هدیه‌ها", "unit": 2, "score": 20},
+            {"name": "مطالعات اجتماعی", "unit": 2, "score": 20},
+            {"name": "زبان انگلیسی", "unit": 2, "score": 20},
+            {"name": "هنر", "unit": 1, "score": 20},
+            {"name": "ورزش", "unit": 1, "score": 20}
+        ]
+    }
+    return render_template("report_card.html", **sample_data)
 
 
 if __name__ == "__main__":
