@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>کارنامه نمونه دانش‌آموز</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Tahoma, sans-serif;
+      background: #e5e7eb;
+    }
+    .page {
+      width: 1000px;
+      max-width: 100%;
+      margin: 20px auto;
+      background: #ffffff;
+      border: 8px solid #111827;
+      padding: 10px 14px 16px;
+    }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 2px solid #111827;
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+    }
+    .header-box {
+      border: 1px solid #111827;
+      padding: 6px 8px;
+      font-size: 11px;
+      line-height: 1.8;
+      flex: 1;
+      min-height: 70px;
+    }
+    .header-box.small {
+      flex: 0 0 260px;
+    }
+    .header-title {
+      font-size: 12px;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .center-text {
+      text-align: center;
+    }
+
+    .main-table-wrapper {
+      border: 1px solid #111827;
+      margin-bottom: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    th, td {
+      border: 1px solid #111827;
+      padding: 2px 4px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    th {
+      background: #f3f4f6;
+    }
+    .col-course-name {
+      text-align: right;
+      padding-right: 6px;
+    }
+    .narrow {
+      width: 28px;
+    }
+    .notes-col {
+      width: 220px;
+    }
+    .result-col {
+      width: 60px;
+    }
+
+    .footer-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .footer-box {
+      border: 1px solid #111827;
+      padding: 6px 8px;
+      font-size: 11px;
+      flex: 1;
+      min-height: 60px;
+    }
+    .footer-box.small {
+      flex: 0 0 260px;
+    }
+
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .summary-table th,
+    .summary-table td {
+      border: 1px solid #111827;
+      padding: 4px 6px;
+      text-align: center;
+    }
+    .summary-table th {
+      background: #f3f4f6;
+    }
+
+    .print-hint {
+      margin: 8px auto 0;
+      max-width: 1000px;
+      font-size: 11px;
+      color: #4b5563;
+      text-align: left;
+      direction: ltr;
+    }
+
+    @media print {
+      body { background: #ffffff; }
+      .page { margin: 0 auto; border-width: 6px; }
+      .print-hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page">
+  <!-- سطر بالای کارنامه -->
+  <div class="header-row">
+    <div class="header-box">
+      <div class="header-title center-text">
+        جمهوری اسلامی ایران – وزارت آموزش و پرورش
+      </div>
+      <div class="center-text">
+        کارنامه تحصیلی دوره ابتدایی<br>
+        سال تحصیلی {{ year_title }}
+      </div>
+    </div>
+    <div class="header-box small">
+      <div><strong>نام مدرسه:</strong> {{ school_name }}</div>
+      <div><strong>پایه:</strong> {{ grade_title }}</div>
+      <div><strong>نام دانش‌آموز:</strong> {{ student_name }}</div>
+      <div><strong>کد دانش‌آموز:</strong> {{ student_code }}</div>
+    </div>
+  </div>
+
+  <!-- جدول اصلی نمرات -->
+  <div class="main-table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th class="narrow">ردیف</th>
+          <th>کد درس</th>
+          <th>نام درس</th>
+          <th>واحد</th>
+          <th>نمره نهایی</th>
+          <th class="result-col">نتیجه</th>
+          <th class="notes-col">ملاحظات</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in courses %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>—</td>
+          <td class="col-course-name">{{ c.name }}</td>
+          <td>{{ c.unit }}</td>
+          <td>{{ c.score }}</td>
+          <td>
+            {% if c.score >= 10 %}قبول{% else %}مردود{% endif %}
+          </td>
+          <td></td>
+        </tr>
+        {% endfor %}
+        {# چند ردیف خالی برای شباهت به فرم واقعی #}
+        {% for i in range(15 - courses|length) %}
+        <tr>
+          <td>&nbsp;</td>
+          <td></td>
+          <td class="col-course-name"></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- باکس پایینی: متن گواهی + معدل و ... -->
+  <div class="footer-row">
+    <div class="footer-box">
+      گواهی می‌شود دانش‌آموز فوق در سال تحصیلی {{ year_title }}
+      در پایه {{ grade_title }} دبستان {{ school_name }}
+      با مجموع واحد {{ total_units }} و معدل {{ avg_score }}
+      و حضور تقریبی {{ attendance_percent }}٪ دوره را با موفقیت گذرانده است.
+    </div>
+    <div class="footer-box small">
+      <table class="summary-table">
+        <tr>
+          <th>تعداد واحد درسی</th>
+          <th>جمع نمرات</th>
+          <th>معدل</th>
+        </tr>
+        <tr>
+          <td>{{ total_units }}</td>
+          <td>{{ total_score }}</td>
+          <td>{{ avg_score }}</td>
+        </tr>
+      </table>
+      <div style="margin-top:6px; font-size:10px; text-align:right;">
+        تاریخ چاپ: {{ (""|safe) }}
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-row" style="margin-top:6px;">
+    <div class="footer-box">
+      مهر و امضای مدیر مدرسه
+    </div>
+    <div class="footer-box">
+      مهر و امضای مسئول ثبت نمرات
+    </div>
+  </div>
+</div>
+
+<div class="print-hint">
+  برای چاپ تمیز، در مرورگر گزینه Print را بزنید و حاشیه‌ها را روی «حداقل» قرار دهید.
+</div>
+
+</body>
+</html>
