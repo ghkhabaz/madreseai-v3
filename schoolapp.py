@@ -2,17 +2,16 @@ import os
 import json
 import random
 from flask import Flask, render_template, request, jsonify
+from pypdf import PdfReader  # در requirements.txt هم pypdf را اضافه کن
 
 app = Flask(__name__)
 
-# مسیر فایل داده مدارس و کتاب‌ها
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, "data", "schools.json")
 BOOKS_DIR = os.path.join(BASE_DIR, "data", "books")
 
 
 def load_schools_data():
-    """خواندن داده مدارس از فایل JSON."""
     try:
         with open(DATA_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -22,7 +21,6 @@ def load_schools_data():
 
 
 def find_school_by_id(schools, school_id: str):
-    """پیدا کردن مدرسه بر اساس id ساده."""
     for s in schools:
         if s.get("id") == school_id:
             return s
@@ -30,13 +28,6 @@ def find_school_by_id(schools, school_id: str):
 
 
 def simple_faq_match(faqs, question: str):
-    """
-    جست‌وجوی کمی هوشمندتر:
-    - از روی keywords و tags برای هر FAQ امتیاز حساب می‌کند.
-    - هر کلمه‌کلیدی که در سوال باشد: +1
-    - هر تگی که در سوال باشد: +2 (چون خاص‌تر است)
-    - FAQ با بیشترین امتیاز انتخاب می‌شود؛ اگر امتیاز = 0 باشد، None برمی‌گردد.
-    """
     question = (question or "").strip()
     if not question:
         return None
@@ -74,17 +65,11 @@ def simple_faq_match(faqs, question: str):
 
 @app.route("/")
 def home():
-    """صفحه لندینگ MadreseAI."""
     return render_template("index.html")
 
 
 @app.route("/api/<school_id>/ask", methods=["POST"])
 def ask_school_bot(school_id):
-    """
-    API ساده چت‌بات مدرسه.
-    ورودی JSON: { "question": "متن سوال والد/دانش‌آموز" }
-    خروجی JSON: { "answer": "...", "matched_question": "..." }
-    """
     data = request.get_json(silent=True) or {}
     question = data.get("question", "")
 
@@ -112,43 +97,66 @@ def ask_school_bot(school_id):
     })
 
 
-# ---------- ماژول دمو طراحی سؤال از کتاب ----------
+# ---------- طراحی سؤال از کتاب ----------
 
-def load_book_text(grade: str, subject: str, chapter: str) -> str:
-    """
-    خواندن متن فصل از فایل.
-    در نسخه دمو، فقط برای «پایه ۶، علوم تجربی، فصل ۴» فایل داریم.
-    """
-    subject = (subject or "").strip()
-    subject_norm = subject.replace(" ", "")
-    is_science_grade6 = (
-        grade == "6"
-        and ("علوم" in subject or "science" in subject_norm)
-        and chapter == "4"
-    )
-
-    if is_science_grade6:
-        filename = "science_grade6_f4.txt"
-    else:
-        return ""
-
-    path = os.path.join(BOOKS_DIR, filename)
+def extract_text_from_pdf(pdf_path: str) -> str:
+    """استخراج متن ساده از PDF با pypdf."""
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            return f.read()
+        reader = PdfReader(pdf_path)
+        parts = []
+        for page in reader.pages:
+            txt = page.extract_text() or ""
+            parts.append(txt)
+        text = "\n".join(parts)
+        return text.strip()
     except Exception:
         return ""
 
 
+def load_book_text(grade: str, subject: str, chapter: str, track: str | None = None) -> str:
+    """
+    منبع متن:
+    - علوم پایه ششم، فصل ۴ → فایل science_grade6_f4.txt
+    - فیزیک پایه دهم (هر رشته) → PDF physics_grade10_math.pdf
+    """
+    subject = (subject or "").strip()
+    subject_norm = subject.replace(" ", "").lower()
+    grade = str(grade)
+
+    # علوم ششم فصل ۴
+    is_science_grade6_f4 = (
+        grade == "6"
+        and ("علوم" in subject or "science" in subject_norm)
+        and chapter == "4"
+    )
+    if is_science_grade6_f4:
+        path = os.path.join(BOOKS_DIR, "science_grade6_f4.txt")
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception:
+            return ""
+
+    # فیزیک دهم (فعلاً بدون توجه به track، چون از فرانت شاید نیاید)
+    is_physics_grade10 = (
+        grade == "10"
+        and ("فیزیک" in subject or "physics" in subject_norm)
+    )
+    if is_physics_grade10:
+        pdf_path = os.path.join(BOOKS_DIR, "physics_grade10_math.pdf")
+        return extract_text_from_pdf(pdf_path)
+
+    return ""
+
+
 def generate_demo_questions_from_text(text: str, qtype: str, count: int = 3):
-    """تولید چند سوال دمو از روی متن."""
     text = (text or "").strip()
     if not text:
         return []
 
-    t_short = (text[:120] + "…") if len(text) > 120 else text
+    t_short = (text[:300] + "…") if len(text) > 300 else text
     mid_start = max(0, len(text) // 3)
-    t_mid = (text[mid_start: mid_start + 120] + "…") if len(text) > mid_start + 40 else text
+    t_mid = (text[mid_start: mid_start + 300] + "…") if len(text) > mid_start + 100 else text
 
     questions = []
 
@@ -156,10 +164,10 @@ def generate_demo_questions_from_text(text: str, qtype: str, count: int = 3):
         if qtype == "mcq":
             templates = [
                 f"بر اساس متن زیر، کدام گزینه درست است؟\n«{t_short}»",
-                f"از متن زیر، بهترین توصیف برای مفهوم اصلی کدام است؟\n«{t_mid}»"
+                f"با توجه به متن زیر، کدام گزینه بهترین توصیف برای مفهوم اصلی است؟\n«{t_mid}»"
             ]
             q_text = random.choice(templates)
-            opts = ["مثال درست", "مثال نادرست", "گزینه غلط", "گزینه نامرتبط"]
+            opts = ["گزینه صحیح", "نزدیک به صحیح", "نادرست", "کاملاً نادرست"]
             questions.append({
                 "type": "mcq",
                 "question": f"سوال تستی {i}: {q_text}",
@@ -168,10 +176,9 @@ def generate_demo_questions_from_text(text: str, qtype: str, count: int = 3):
             })
 
         elif qtype == "tf":
-            templates = ["در این فصل درباره حالت‌های ماده صحبت شده است."]
-            base = random.choice(templates)
-            q_text = f"جمله زیر بر اساس متن فصل صحیح است؟\n«{base}»"
-            answer = "درست"
+            base = "عبارت زیر را بر اساس متن کتاب، درست یا نادرست تشخیص دهید."
+            q_text = f"{base}\n«در این بخش کتاب، تنها یک نوع حرکت بررسی شده است.»"
+            answer = random.choice(["درست", "نادرست"])
             questions.append({
                 "type": "tf",
                 "question": f"سوال درست/غلط {i}: {q_text}",
@@ -179,11 +186,10 @@ def generate_demo_questions_from_text(text: str, qtype: str, count: int = 3):
             })
 
         else:  # short
-            templates = ["توضیح دهید چه تفاوتی بین حالت‌های ماده وجود دارد."]
-            q_text = random.choice(templates)
+            base = "با توجه به متن کتاب، تفاوت دو مفهوم اصلی این فصل را توضیح دهید."
             questions.append({
                 "type": "short",
-                "question": f"سوال تشریحی {i}: {q_text}",
+                "question": f"سوال تشریحی {i}: {base}",
                 "answer": ""
             })
 
@@ -192,18 +198,19 @@ def generate_demo_questions_from_text(text: str, qtype: str, count: int = 3):
 
 @app.route("/api/demo/quiz", methods=["POST"])
 def demo_quiz():
-    """دمو طراحی سوال."""
     data = request.get_json(silent=True) or {}
     grade = str(data.get("grade", "6"))
     subject = data.get("subject", "علوم تجربی")
     chapter = str(data.get("chapter", "4"))
     qtype = data.get("qtype", "mcq")
     count = int(data.get("count", 3) or 3)
+    track = data.get("track")  # فعلاً استفاده نمی‌شود، برای آینده
 
-    text = load_book_text(grade, subject, chapter)
+    text = load_book_text(grade, subject, chapter, track)
+
     if not text:
         return jsonify({
-            "error": "فقط «علوم پایه ششم، فصل ۴» در دمو فعال است.",
+            "error": "در نسخه دمو فقط «علوم پایه ششم، فصل ۴» و «فیزیک پایه دهم» فعال است.",
             "questions": []
         }), 400
 
@@ -218,13 +225,9 @@ def demo_quiz():
     })
 
 
-# ---------- ماژول دمو کارنامه (متن توضیحی) ----------
+# ---------- ماژول دمو کارنامه (گزارش متنی) ----------
 
 def build_demo_report(name: str, grade: str, scores: dict, attendance_percent: int) -> str:
-    """
-    تولید یک متن گزارش ساده بر اساس نمرات.
-    بعداً این بخش را می‌توان با مدل هوش مصنوعی جایگزین کرد.
-    """
     name = name or "دانش‌آموز"
     grade = grade or ""
     scores = scores or {}
@@ -271,7 +274,6 @@ def build_demo_report(name: str, grade: str, scores: dict, attendance_percent: i
 
 @app.route("/api/demo/report", methods=["POST"])
 def demo_report():
-    """دمو تولید گزارش متنی."""
     data = request.get_json(silent=True) or {}
     name = data.get("name", "")
     grade = data.get("grade", "")
@@ -292,14 +294,10 @@ def demo_report():
     })
 
 
-# ---------- صفحه نمایشی کارنامه شبیه فرم رسمی ----------
+# ---------- صفحه HTML کارنامه رسمی ----------
 
 @app.route("/demo/report-card")
 def demo_report_card():
-    """
-    صفحه HTML دمو کارنامه شبیه فرم رسمی.
-    داده‌های نمونه برای یک دانش‌آموز دبستان پویا را به قالب می‌فرستد.
-    """
     sample_data = {
         "student_name": "علی نمونه",
         "student_code": "۱۲۳۴۵۶۷",
