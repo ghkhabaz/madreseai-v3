@@ -2,7 +2,7 @@ import os
 import json
 import random
 from flask import Flask, render_template, request, jsonify
-from pypdf import PdfReader  # در requirements.txt هم pypdf را اضافه کن
+from pypdf import PdfReader  # در requirements.txt:  flask==3.0.3, gunicorn==22.0.0, pypdf>=3.12.0
 
 app = Flask(__name__)
 
@@ -100,24 +100,38 @@ def ask_school_bot(school_id):
 # ---------- طراحی سؤال از کتاب ----------
 
 def extract_text_from_pdf(pdf_path: str) -> str:
-    """استخراج متن ساده از PDF با pypdf."""
+    """استخراج متن ساده از PDF با pypdf؛ اگر خطا بود، متن خلاصه برمی‌گردانیم."""
     try:
         reader = PdfReader(pdf_path)
         parts = []
-        for page in reader.pages:
-            txt = page.extract_text() or ""
+        # برای دمو حداکثر ۲۰ صفحه اول
+        for i, page in enumerate(reader.pages):
+            if i >= 20:
+                break
+            try:
+                txt = page.extract_text() or ""
+            except Exception:
+                txt = ""
             parts.append(txt)
-        text = "\n".join(parts)
-        return text.strip()
+        text = "\n".join(parts).strip()
+        if text:
+            return text
     except Exception:
-        return ""
+        pass
+
+    # اگر PDF مشکل داشته باشد، متن fallback تا سرور کرش نکند
+    return (
+        "در این کتاب فیزیک پایه دهم، مفاهیم اصلی مانند کمیت‌های فیزیکی، اندازه‌گیری، "
+        "حرکت‌شناسی و دینامیک بررسی می‌شوند. دانش‌آموز با بردار و نرده‌ای، سرعت، شتاب، "
+        "نیرو و قوانین نیوتن آشنا می‌شود و می‌آموزد چگونه مسائل حرکت و تعادل اجسام را حل کند."
+    )
 
 
 def load_book_text(grade: str, subject: str, chapter: str, track: str | None = None) -> str:
     """
     منبع متن:
-    - علوم پایه ششم، فصل ۴ → فایل science_grade6_f4.txt
-    - فیزیک پایه دهم (هر رشته) → PDF physics_grade10_math.pdf
+    - علوم پایه ششم، فصل ۴ → فایل data/books/science_grade6_f4.txt
+    - فیزیک پایه دهم → PDF data/books/physics_grade10_math.pdf (یا متن خلاصه)
     """
     subject = (subject or "").strip()
     subject_norm = subject.replace(" ", "").lower()
@@ -137,7 +151,7 @@ def load_book_text(grade: str, subject: str, chapter: str, track: str | None = N
         except Exception:
             return ""
 
-    # فیزیک دهم (فعلاً بدون توجه به track، چون از فرانت شاید نیاید)
+    # فیزیک دهم (هر رشته؛ فعلاً فصل را جدا نمی‌کنیم)
     is_physics_grade10 = (
         grade == "10"
         and ("فیزیک" in subject or "physics" in subject_norm)
@@ -204,7 +218,7 @@ def demo_quiz():
     chapter = str(data.get("chapter", "4"))
     qtype = data.get("qtype", "mcq")
     count = int(data.get("count", 3) or 3)
-    track = data.get("track")  # فعلاً استفاده نمی‌شود، برای آینده
+    track = data.get("track")
 
     text = load_book_text(grade, subject, chapter, track)
 
@@ -225,7 +239,7 @@ def demo_quiz():
     })
 
 
-# ---------- ماژول دمو کارنامه (گزارش متنی) ----------
+# ---------- دمو کارنامه (گزارش متنی) ----------
 
 def build_demo_report(name: str, grade: str, scores: dict, attendance_percent: int) -> str:
     name = name or "دانش‌آموز"
@@ -294,7 +308,7 @@ def demo_report():
     })
 
 
-# ---------- صفحه HTML کارنامه رسمی ----------
+# ---------- کارنامه رسمی HTML ----------
 
 @app.route("/demo/report-card")
 def demo_report_card():
