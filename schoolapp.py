@@ -2,14 +2,17 @@ import os
 import json
 import random
 from flask import Flask, render_template, request, jsonify
-from pypdf import PdfReader  # در requirements.txt:  flask==3.0.3, gunicorn==22.0.0, pypdf>=3.12.0
+from pypdf import PdfReader  # در requirements.txt: flask==3.0.3, gunicorn==22.0.0, pypdf>=3.12.0
 
 app = Flask(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, "data", "schools.json")
 BOOKS_DIR = os.path.join(BASE_DIR, "data", "books")
+BOOK_INDEX_PATH = os.path.join(BOOKS_DIR, "book_index.json")
 
+
+# ---------- ابزارهای مشترک ----------
 
 def load_schools_data():
     try:
@@ -63,6 +66,8 @@ def simple_faq_match(faqs, question: str):
     return best_faq
 
 
+# ---------- روت‌های اصلی ----------
+
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -99,16 +104,31 @@ def ask_school_bot(school_id):
 
 # ---------- طراحی سؤال از کتاب ----------
 
-def extract_text_from_pdf(pdf_path: str) -> str:
-    """استخراج متن ساده از PDF با pypdf؛ اگر خطا بود، متن خلاصه برمی‌گردانیم."""
+def load_book_index() -> dict:
+    """خواندن book_index.json که بازه صفحات هر فصل را نگه می‌دارد."""
+    try:
+        with open(BOOK_INDEX_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def extract_text_from_pdf_range(pdf_path: str, start_page: int, end_page: int) -> str:
+    """
+    استخراج متن از یک بازه صفحه در PDF با pypdf.
+    شماره صفحات بر اساس فایل است (۱، ۲، ۳، ...) و به نمایه ۰ تبدیل می‌شود.
+    اگر خطا رخ دهد، متن خلاصه fallback برمی‌گردد تا سرور کرش نکند.
+    """
     try:
         reader = PdfReader(pdf_path)
+        n_pages = len(reader.pages)
+        # اطمینان از حدود
+        start = max(1, start_page)
+        end = min(end_page, n_pages)
         parts = []
-        # برای دمو حداکثر ۲۰ صفحه اول
-        for i, page in enumerate(reader.pages):
-            if i >= 20:
-                break
+        for page_no in range(start, end + 1):
             try:
+                page = reader.pages[page_no - 1]  # تبدیل به ایندکس صفرمبتنی
                 txt = page.extract_text() or ""
             except Exception:
                 txt = ""
@@ -119,7 +139,7 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     except Exception:
         pass
 
-    # اگر PDF مشکل داشته باشد، متن fallback تا سرور کرش نکند
+    # اگر PDF مشکل داشت، متن fallback برای فیزیک دهم
     return (
         "در این کتاب فیزیک پایه دهم، مفاهیم اصلی مانند کمیت‌های فیزیکی، اندازه‌گیری، "
         "حرکت‌شناسی و دینامیک بررسی می‌شوند. دانش‌آموز با بردار و نرده‌ای، سرعت، شتاب، "
@@ -131,11 +151,12 @@ def load_book_text(grade: str, subject: str, chapter: str, track: str | None = N
     """
     منبع متن:
     - علوم پایه ششم، فصل ۴ → فایل data/books/science_grade6_f4.txt
-    - فیزیک پایه دهم → PDF data/books/physics_grade10_math.pdf (یا متن خلاصه)
+    - فیزیک پایه دهم ریاضی → بازه صفحات هر فصل از book_index.json روی PDF physics_grade10_math.pdf
     """
     subject = (subject or "").strip()
     subject_norm = subject.replace(" ", "").lower()
     grade = str(grade)
+    chapter = str(chapter)
 
     # علوم ششم فصل ۴
     is_science_grade6_f4 = (
@@ -151,14 +172,25 @@ def load_book_text(grade: str, subject: str, chapter: str, track: str | None = N
         except Exception:
             return ""
 
-    # فیزیک دهم (هر رشته؛ فعلاً فصل را جدا نمی‌کنیم)
+    # فیزیک دهم (کلید: physics_grade10_math)
     is_physics_grade10 = (
         grade == "10"
         and ("فیزیک" in subject or "physics" in subject_norm)
     )
     if is_physics_grade10:
+        index_data = load_book_index()
+        book_key = "physics_grade10_math"
+        book_info = index_data.get(book_key, {})
+        page_range = book_info.get(chapter)
+
         pdf_path = os.path.join(BOOKS_DIR, "physics_grade10_math.pdf")
-        return extract_text_from_pdf(pdf_path)
+
+        if page_range and isinstance(page_range, list) and len(page_range) == 2:
+            start_page, end_page = page_range
+            return extract_text_from_pdf_range(pdf_path, int(start_page), int(end_page))
+        else:
+            # اگر برای این فصل بازه تعریف نشده باشد، فعلاً کل PDF/ fallback
+            return extract_text_from_pdf_range(pdf_path, 1, 20)
 
     return ""
 
@@ -168,6 +200,7 @@ def generate_demo_questions_from_text(text: str, qtype: str, count: int = 3):
     if not text:
         return []
 
+    # کمی خلاصه ابتدای متن و وسط متن برای استفاده در سوال‌ها
     t_short = (text[:300] + "…") if len(text) > 300 else text
     mid_start = max(0, len(text) // 3)
     t_mid = (text[mid_start: mid_start + 300] + "…") if len(text) > mid_start + 100 else text
@@ -224,7 +257,7 @@ def demo_quiz():
 
     if not text:
         return jsonify({
-            "error": "در نسخه دمو فقط «علوم پایه ششم، فصل ۴» و «فیزیک پایه دهم» فعال است.",
+            "error": "در نسخه دمو فعلاً «علوم پایه ششم، فصل ۴» و «فیزیک پایه دهم (فصول تعریف‌شده در book_index)» فعال است.",
             "questions": []
         }), 400
 
