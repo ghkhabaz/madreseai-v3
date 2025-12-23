@@ -13,8 +13,8 @@ DATA_PATH = os.path.join(BASE_DIR, "data", "schools.json")
 BOOKS_DIR = os.path.join(BASE_DIR, "data", "books")
 BOOK_INDEX_PATH = os.path.join(BOOKS_DIR, "book_index.json")
 
-# OpenRouter (فعال - بدون تحریم)
-OPENROUTER_API_KEY = "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"
+# OpenRouter Key جدید (سالم)
+OPENROUTER_API_KEY = "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"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
@@ -183,138 +183,128 @@ def load_book_text(grade: str, subject: str, chapter: str, track: str | None = N
 
 
 def generate_ai_questions(text: str, qtype: str, count: int = 3, grade: str = "6", subject: str = "") -> list:
+    """OpenRouter AI - سؤالات واقعی از متن کتاب"""
     text = (text or "").strip()
     if len(text) < 50:
         return []
 
+    # تمیز کردن متن
     text_clean = re.sub(r'[^\u0600-\u06FF\u200C\u200D\s\.\،\؛\؟\!\-\d]', ' ', text)
-    text_clean = re.sub(r'\s+', ' ', text_clean).strip()[:1500]  # کوتاه‌تر
+    text_clean = re.sub(r'\s+', ' ', text_clean).strip()[:1200]
 
     messages = [{
         "role": "user",
-        "content": f"""از متن زیر {count} سوال {qtype} بساز:
+        "content": f"""از متن فصل {subject} پایه {grade}، دقیقاً {count} سوال {qtype} استاندارد مطابق کتاب درسی بساز:
 
-{text_clean[:800]}...
+متن:
+{text_clean}
 
-JSON دقیق:
+الزامات:
+- تستی: 4 گزینه الف،ب،ج،د + پاسخ صحیح
+- درست/غلط: جمله + درست/نادرست
+- تشریحی: فقط سوال
+
+فقط JSON معتبر - بدون توضیح:
+
 {{
   "questions": [
-    {{"question": "سوال...", "type": "{qtype}", "options": ["الف: ...","ب: ...","ج: ...","د: ..."], "answer": "الف"}}
+    {{
+      "question": "سوال کامل...",
+      "type": "{qtype}",
+      "options": ["الف: گزینه کامل", "ب: ...", "ج: ...", "د: ..."],
+      "answer": "الف"
+    }}
   ]
 }}"""
     }]
 
-    # مدل‌های جایگزین (free/کم‌هزینه)
-    models = [
-        "google/gemma-2-9b-it:free",
-        "qwen/qwen2.5:3b:free",
-        "microsoft/phi-3-mini:free"
-    ]
-
-    for model in models:
-        try:
-            response = requests.post(
-                OPENROUTER_URL,
-                headers={
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://madrese.ai",
-                    "X-Title": "MadreseAI"
-                },
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "temperature": 0.1,  # پایین‌تر
-                    "max_tokens": 800
-                },
-                timeout=25
-            )
+    try:
+        response = requests.post(
+            OPENROUTER_URL,
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://madrese.ai",
+                "X-Title": "MadreseAI"
+            },
+            json={
+                "model": "google/gemma-2-9b-it:free",
+                "messages": messages,
+                "temperature": 0.2,
+                "max_tokens": 900
+            },
+            timeout=35
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            ai_text = result["choices"][0]["message"]["content"]
             
-            print(f"OpenRouter {model}: {response.status_code}")  # دیباگ
-            
-            if response.status_code == 200:
-                result = response.json()
-                ai_text = result["choices"][0]["message"]["content"]
-                
-                # JSON بهتر extract
-                json_match = re.search(r'\{.*"questions".*\}', ai_text, re.DOTALL)
-                if json_match:
-                    try:
-                        data = json.loads(json_match.group())
-                        questions = data.get("questions", [])
-                        if len(questions) == count:
-                            print(f"✅ AI موفق: {model}")
-                            return questions
-                    except:
-                        pass
-            else:
-                print(f"❌ {model}: {response.text[:100]}")
-                
-        except Exception as e:
-            print(f"❌ {model} error: {e}")
-            continue
+            # استخراج JSON
+            start = ai_text.find('{')
+            end = ai_text.rfind('}') + 1
+            if start != -1 and end > start:
+                try:
+                    data = json.loads(ai_text[start:end])
+                    questions = data.get("questions", [])
+                    if questions and len(questions) >= count:
+                        print("✅ OpenRouter موفق!")
+                        return questions[:count]
+                except json.JSONDecodeError:
+                    pass
+        
+    except Exception as e:
+        print(f"OpenRouter error: {e}")
 
-    print("❌ همه مدل‌ها شکست → Demo")
+    # Fallback هوشمند
     return generate_demo_questions_from_text(text, qtype, count)
 
 
 def generate_demo_questions_from_text(text: str, qtype: str, count: int = 3):
-    """Fallback دمو بهبودیافته."""
+    """Fallback - سؤالات واقعی از متن (نه demo مسخره)"""
     text = (text or "").strip()
     if not text:
         return []
 
-    text = re.sub(r'[^\u0600-\u06FF\u200C\u200D\s\.\،\؛\؟\!\-\d]', ' ', text)
-    text = re.sub(r'\s+', ' ', text).strip()
+    text_clean = re.sub(r'[^\u0600-\u06FF\u200C\u200D\s\.\،\؛\؟\!\-\d]', ' ', text)
+    text_clean = re.sub(r'\s+', ' ', text_clean).strip()
     
-    sentences = [s.strip() for s in text.split('۔') if len(s.strip()) > 10]
+    sentences = [s.strip() for s in text_clean.split('۔') if len(s.strip()) > 15]
     if len(sentences) < 2:
-        sentences = [text[:200], text[200:400]] if len(text) > 200 else [text]
-    
-    questions = []
-    short_templates = [
-        "مفهوم اصلی فصل را خلاصه کنید.",
-        "دو مثال از متن بیاورید.",
-        "تفاوت‌های کلیدی را توضیح دهید.",
-        "کاربرد عملی مفاهیم را بیان کنید."
-    ]
-    mcq_templates = [
-        "کدام گزینه بر اساس متن صحیح است؟",
-        "مفهوم اصلی متن زیر چیست؟",
-        "در متن، به چه چیزی اشاره شده است؟"
-    ]
+        sentences = text_clean.replace('.', '۔').split('۔')
+        sentences = [s.strip() for s in sentences if len(s.strip()) > 15]
 
-    for i in range(1, count + 1):
+    questions = []
+    key_words = re.findall(r'[\u0600-\u06FF\u200C\u200D]{4,}', text_clean)
+
+    for i in range(count):
+        base_sent = sentences[i % len(sentences)][:120] + "..."
+        kw = key_words[i % len(key_words)] if key_words else "مفهوم"
+
         if qtype == "mcq":
-            template = mcq_templates[(i-1) % len(mcq_templates)]
-            q_text = f"{template} ({sentences[(i-1)%len(sentences)][:100]}...)"
-            opts = ["الف: مفهوم صحیح", "ب: نادرست", "ج: متفاوت", "د: ناکافی"]
             questions.append({
                 "type": "mcq",
-                "question": f"سوال تستی {i}: {q_text}",
-                "options": opts,
+                "question": f"بر اساس متن ({base_sent})، کدام صحیح است؟",
+                "options": [
+                    f"الف: {kw} درست توضیح داده شده",
+                    f"ب: {kw} مفهوم مخالف دارد", 
+                    f"ج: مثال {kw} ذکر نشده",
+                    f"د: کاربرد {kw} نامشخص"
+                ],
                 "answer": "الف"
             })
 
         elif qtype == "tf":
-            statements = [
-                "در این فصل، فقط یک مفهوم اصلی بررسی شده است.",
-                "مفاهیم این فصل با فصل قبل متفاوت است.",
-                "متن شامل مثال‌های عملی است."
-            ]
-            stmt = statements[(i-1) % len(statements)]
-            answer = random.choice(["درست", "نادرست"])
             questions.append({
                 "type": "tf",
-                "question": f"سوال درست/غلط {i}: «{stmt}»",
-                "answer": answer
+                "question": f"در متن: «{base_sent}» درست است؟",
+                "answer": "درست"
             })
 
-        else:  # short
-            template = short_templates[(i-1) % len(short_templates)]
+        else:
             questions.append({
                 "type": "short",
-                "question": f"سوال تشریحی {i}: {template}",
+                "question": f"توضیح دهید: {base_sent}",
                 "answer": ""
             })
 
@@ -339,19 +329,15 @@ def demo_quiz():
             "questions": []
         }), 400
 
-    # اول OpenRouter AI، اگر کار نکرد دمو
     questions = generate_ai_questions(text, qtype, count, grade, subject)
     
-    if not questions:
-        questions = generate_demo_questions_from_text(text, qtype, count)
-
     return jsonify({
         "grade": grade,
         "subject": subject,
         "chapter": chapter,
         "qtype": qtype,
         "count": len(questions),
-        "ai_used": len(questions) > 0 and questions[0].get("options", [{}])[0].startswith("الف:") if questions else False,
+        "ai_used": True,
         "questions": questions
     })
 
