@@ -1,8 +1,10 @@
 import os
 import json
 import random
+import re
+import requests
 from flask import Flask, render_template, request, jsonify
-from pypdf import PdfReader  # در requirements.txt: flask==3.0.3, gunicorn==22.0.0, pypdf>=3.12.0
+from pypdf import PdfReader
 
 app = Flask(__name__)
 
@@ -11,8 +13,10 @@ DATA_PATH = os.path.join(BASE_DIR, "data", "schools.json")
 BOOKS_DIR = os.path.join(BASE_DIR, "data", "books")
 BOOK_INDEX_PATH = os.path.join(BOOKS_DIR, "book_index.json")
 
+# تنظیمات Ollama (قابل تغییر)
+OLLAMA_URL = "http://localhost:11434/api/generate"  # یا IP سرور Ollama
+OLLAMA_MODEL = "gemma3:1b"
 
-# ---------- ابزارهای مشترک ----------
 
 def load_schools_data():
     try:
@@ -66,8 +70,6 @@ def simple_faq_match(faqs, question: str):
     return best_faq
 
 
-# ---------- روت‌های اصلی ----------
-
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -105,7 +107,6 @@ def ask_school_bot(school_id):
 # ---------- طراحی سؤال از کتاب ----------
 
 def load_book_index() -> dict:
-    """خواندن book_index.json که بازه صفحات هر فصل را نگه می‌دارد."""
     try:
         with open(BOOK_INDEX_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -114,21 +115,15 @@ def load_book_index() -> dict:
 
 
 def extract_text_from_pdf_range(pdf_path: str, start_page: int, end_page: int) -> str:
-    """
-    استخراج متن از یک بازه صفحه در PDF با pypdf.
-    شماره صفحات بر اساس فایل است (۱، ۲، ۳، ...) و به نمایه ۰ تبدیل می‌شود.
-    اگر خطا رخ دهد، متن خلاصه fallback برمی‌گردد تا سرور کرش نکند.
-    """
     try:
         reader = PdfReader(pdf_path)
         n_pages = len(reader.pages)
-        # اطمینان از حدود
         start = max(1, start_page)
         end = min(end_page, n_pages)
         parts = []
         for page_no in range(start, end + 1):
             try:
-                page = reader.pages[page_no - 1]  # تبدیل به ایندکس صفرمبتنی
+                page = reader.pages[page_no - 1]
                 txt = page.extract_text() or ""
             except Exception:
                 txt = ""
@@ -139,20 +134,13 @@ def extract_text_from_pdf_range(pdf_path: str, start_page: int, end_page: int) -
     except Exception:
         pass
 
-    # اگر PDF مشکل داشت، متن fallback برای فیزیک دهم
     return (
         "در این کتاب فیزیک پایه دهم، مفاهیم اصلی مانند کمیت‌های فیزیکی، اندازه‌گیری، "
-        "حرکت‌شناسی و دینامیک بررسی می‌شوند. دانش‌آموز با بردار و نرده‌ای، سرعت، شتاب، "
-        "نیرو و قوانین نیوتن آشنا می‌شود و می‌آموزد چگونه مسائل حرکت و تعادل اجسام را حل کند."
+        "حرکت‌شناسی و دینامیک بررسی می‌شوند."
     )
 
 
 def load_book_text(grade: str, subject: str, chapter: str, track: str | None = None) -> str:
-    """
-    منبع متن:
-    - علوم پایه ششم، فصل ۴ → فایل data/books/science_grade6_f4.txt
-    - فیزیک پایه دهم ریاضی → بازه صفحات هر فصل از book_index.json روی PDF physics_grade10_math.pdf
-    """
     subject = (subject or "").strip()
     subject_norm = subject.replace(" ", "").lower()
     grade = str(grade)
@@ -172,7 +160,7 @@ def load_book_text(grade: str, subject: str, chapter: str, track: str | None = N
         except Exception:
             return ""
 
-    # فیزیک دهم (کلید: physics_grade10_math)
+    # فیزیک دهم
     is_physics_grade10 = (
         grade == "10"
         and ("فیزیک" in subject or "physics" in subject_norm)
@@ -189,54 +177,143 @@ def load_book_text(grade: str, subject: str, chapter: str, track: str | None = N
             start_page, end_page = page_range
             return extract_text_from_pdf_range(pdf_path, int(start_page), int(end_page))
         else:
-            # اگر برای این فصل بازه تعریف نشده باشد، فعلاً کل PDF/ fallback
             return extract_text_from_pdf_range(pdf_path, 1, 20)
 
     return ""
 
 
+def generate_ai_questions(text: str, qtype: str, count: int = 3, grade: str = "6", subject: str = "") -> list:
+    """تولید سوال واقعی با Ollama gemma3:1b."""
+    text = (text or "").strip()
+    if len(text) < 50:
+        return []
+
+    # تمیز کردن متن برای Ollama
+    text_clean = re.sub(r'[^\u0600-\u06FF\u200C\u200D\s\.\،\؛\؟\!\-\d]', ' ', text)
+    text_clean = re.sub(r'\s+', ' ', text_clean).strip()[:3000]
+
+    prompt = f"""از متن فصل {subject} پایه {grade}، دقیقاً {count} سوال {qtype} استاندارد مطابق کتاب درسی بساز.
+
+متن فصل:
+{text_clean}
+
+الزامات دقیق:
+1. سوال‌ها مفهومی و آموزشی باشند
+2. تستی: 4 گزینه الف،ب،ج،د با پاسخ واضح
+3. درست/غلط: یک جمله + درست/نادرست
+4. تشریحی: سوال کامل بدون پاسخ
+5. سطح مناسب {grade}م
+
+فقط JSON معتبر برگردان:
+
+{{
+  "questions": [
+    {{
+      "question": "سوال کامل...",
+      "type": "{qtype}",
+      "options": ["الف: متن کامل گزینه", "ب: ...", "ج: ...", "د: ..."],
+      "answer": "الف"
+    }}
+  ]
+}}
+"""
+
+    try:
+        response = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.3,
+                    "top_p": 0.9,
+                    "num_predict": 500
+                }
+            },
+            timeout=45
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            ai_text = result.get("response", "")
+            
+            # استخراج JSON از پاسخ
+            json_match = re.search(r'\{[^{}]*(?:"questions"[^}]*)\}', ai_text, re.DOTALL)
+            if json_match:
+                try:
+                    data = json.loads(json_match.group())
+                    questions = data.get("questions", [])
+                    if questions:
+                        return questions
+                except json.JSONDecodeError:
+                    pass
+        
+    except Exception as e:
+        print(f"Ollama error: {e}")
+
+    # Fallback به دمو اگر AI کار نکرد
+    return generate_demo_questions_from_text(text, qtype, count)
+
+
 def generate_demo_questions_from_text(text: str, qtype: str, count: int = 3):
+    """Fallback دمو بهبودیافته."""
     text = (text or "").strip()
     if not text:
         return []
 
-    # کمی خلاصه ابتدای متن و وسط متن برای استفاده در سوال‌ها
-    t_short = (text[:300] + "…") if len(text) > 300 else text
-    mid_start = max(0, len(text) // 3)
-    t_mid = (text[mid_start: mid_start + 300] + "…") if len(text) > mid_start + 100 else text
-
+    # تمیز کردن سریع
+    text = re.sub(r'[^\u0600-\u06FF\u200C\u200D\s\.\،\؛\؟\!\-\d]', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    
+    sentences = [s.strip() for s in text.split('۔') if len(s.strip()) > 10]
+    if len(sentences) < 2:
+        sentences = [text[:200], text[200:400]] if len(text) > 200 else [text]
+    
     questions = []
+    short_templates = [
+        "مفهوم اصلی فصل را خلاصه کنید.",
+        "دو مثال از متن بیاورید.",
+        "تفاوت‌های کلیدی را توضیح دهید.",
+        "کاربرد عملی مفاهیم را بیان کنید."
+    ]
+    mcq_templates = [
+        "کدام گزینه بر اساس متن صحیح است؟",
+        "مفهوم اصلی متن زیر چیست؟",
+        "در متن، به چه چیزی اشاره شده است؟"
+    ]
 
     for i in range(1, count + 1):
         if qtype == "mcq":
-            templates = [
-                f"بر اساس متن زیر، کدام گزینه درست است؟\n«{t_short}»",
-                f"با توجه به متن زیر، کدام گزینه بهترین توصیف برای مفهوم اصلی است؟\n«{t_mid}»"
-            ]
-            q_text = random.choice(templates)
-            opts = ["گزینه صحیح", "نزدیک به صحیح", "نادرست", "کاملاً نادرست"]
+            template = mcq_templates[(i-1) % len(mcq_templates)]
+            q_text = f"{template} ({sentences[(i-1)%len(sentences)][:100]}...)"
+            opts = ["الف: مفهوم صحیح", "ب: نادرست", "ج: متفاوت", "د: ناکافی"]
             questions.append({
                 "type": "mcq",
                 "question": f"سوال تستی {i}: {q_text}",
                 "options": opts,
-                "answer": opts[0]
+                "answer": "الف"
             })
 
         elif qtype == "tf":
-            base = "عبارت زیر را بر اساس متن کتاب، درست یا نادرست تشخیص دهید."
-            q_text = f"{base}\n«در این بخش کتاب، تنها یک نوع حرکت بررسی شده است.»"
+            statements = [
+                "در این فصل، فقط یک مفهوم اصلی بررسی شده است.",
+                "مفاهیم این فصل با فصل قبل متفاوت است.",
+                "متن شامل مثال‌های عملی است."
+            ]
+            stmt = statements[(i-1) % len(statements)]
             answer = random.choice(["درست", "نادرست"])
             questions.append({
                 "type": "tf",
-                "question": f"سوال درست/غلط {i}: {q_text}",
+                "question": f"سوال درست/غلط {i}: «{stmt}»",
                 "answer": answer
             })
 
         else:  # short
-            base = "با توجه به متن کتاب، تفاوت دو مفهوم اصلی این فصل را توضیح دهید."
+            template = short_templates[(i-1) % len(short_templates)]
             questions.append({
                 "type": "short",
-                "question": f"سوال تشریحی {i}: {base}",
+                "question": f"سوال تشریحی {i}: {template}",
                 "answer": ""
             })
 
@@ -257,22 +334,28 @@ def demo_quiz():
 
     if not text:
         return jsonify({
-            "error": "در نسخه دمو فعلاً «علوم پایه ششم، فصل ۴» و «فیزیک پایه دهم (فصول تعریف‌شده در book_index)» فعال است.",
+            "error": "در نسخه دمو فعلاً «علوم پایه ششم، فصل ۴» و «فیزیک پایه دهم» فعال است.",
             "questions": []
         }), 400
 
-    questions = generate_demo_questions_from_text(text, qtype, count)
+    # اول AI، اگر کار نکرد دمو
+    questions = generate_ai_questions(text, qtype, count, grade, subject)
+    
+    if not questions:
+        questions = generate_demo_questions_from_text(text, qtype, count)
+
     return jsonify({
         "grade": grade,
         "subject": subject,
         "chapter": chapter,
         "qtype": qtype,
         "count": len(questions),
+        "ai_used": len(questions) > 0 and questions[0].get("options", [{}])[0].startswith("الف:") if questions else False,
         "questions": questions
     })
 
 
-# ---------- دمو کارنامه (گزارش متنی) ----------
+# ---------- دمو کارنامه ----------
 
 def build_demo_report(name: str, grade: str, scores: dict, attendance_percent: int) -> str:
     name = name or "دانش‌آموز"
@@ -284,37 +367,21 @@ def build_demo_report(name: str, grade: str, scores: dict, attendance_percent: i
     weak_subjects = [s for s, v in scores.items() if v < 14]
 
     lines = []
-
     lines.append(f"ولی محترم {name}،")
-    lines.append(
-        f"این گزارش بر اساس عملکرد {name} در پایه {grade} در دبستان غیرانتفاعی پویا تنظیم شده است.\n"
-    )
+    lines.append(f"این گزارش بر اساس عملکرد {name} در پایه {grade} در دبستان غیرانتفاعی پویا تنظیم شده است.\n")
 
     if strong_subjects:
         strong_list = "، ".join(strong_subjects)
-        lines.append(
-            f"- در درس‌های {strong_list} عملکرد بسیار خوبی داشته و نشان می‌دهد مفاهیم را به خوبی درک کرده است."
-        )
+        lines.append(f"- در درس‌های {strong_list} عملکرد بسیار خوبی داشته و نشان می‌دهد مفاهیم را به خوبی درک کرده است.")
     if mid_subjects:
         mid_list = "، ".join(mid_subjects)
-        lines.append(
-            f"- در درس‌های {mid_list} سطح عملکرد خوب است، اما با کمی تمرین بیشتر می‌تواند به سطح عالی برسد."
-        )
+        lines.append(f"- در درس‌های {mid_list} سطح عملکرد خوب است، اما با کمی تمرین بیشتر می‌تواند به سطح عالی برسد.")
     if weak_subjects:
         weak_list = "، ".join(weak_subjects)
-        lines.append(
-            f"- در درس‌های {weak_list} نیاز به توجه و همراهی بیشتری وجود دارد. پیشنهاد می‌شود با معلم مربوطه برای برنامه جبرانی هماهنگ کنید."
-        )
+        lines.append(f"- در درس‌های {weak_list} نیاز به توجه و همراهی بیشتری وجود دارد.")
 
-    lines.append(
-        f"- حضور {name} در کلاس‌ها حدود {attendance_percent}٪ بوده است. حضور منظم تاثیر مستقیم در پیشرفت درسی دارد."
-    )
-
-    lines.append(
-        "\nبه طور کلی، روند پیشرفت {0} مثبت ارزیابی می‌شود و با ادامه همراهی شما و تلاش دانش‌آموز، می‌توان انتظار نتایج بهتر در ماه‌های آینده را داشت.".format(
-            name
-        )
-    )
+    lines.append(f"- حضور {name} در کلاس‌ها حدود {attendance_percent}٪ بوده است.")
+    lines.append("\nبه طور کلی، روند پیشرفت {0} مثبت ارزیابی می‌شود.".format(name))
 
     return "\n".join(lines)
 
@@ -331,7 +398,6 @@ def demo_report():
         return jsonify({"error": "نام دانش‌آموز لازم است."}), 400
 
     report_text = build_demo_report(name, grade, scores, attendance_percent)
-
     return jsonify({
         "name": name,
         "grade": grade,
@@ -340,8 +406,6 @@ def demo_report():
         "report": report_text
     })
 
-
-# ---------- کارنامه رسمی HTML ----------
 
 @app.route("/demo/report-card")
 def demo_report_card():
