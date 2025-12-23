@@ -13,9 +13,9 @@ DATA_PATH = os.path.join(BASE_DIR, "data", "schools.json")
 BOOKS_DIR = os.path.join(BASE_DIR, "data", "books")
 BOOK_INDEX_PATH = os.path.join(BOOKS_DIR, "book_index.json")
 
-# تنظیمات Ollama (قابل تغییر)
-OLLAMA_URL = "http://localhost:11434/api/generate"  # یا IP سرور Ollama
-OLLAMA_MODEL = "gemma3:1b"
+# OpenRouter (فعال - بدون تحریم)
+OPENROUTER_API_KEY = "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"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
 def load_schools_data():
@@ -183,16 +183,18 @@ def load_book_text(grade: str, subject: str, chapter: str, track: str | None = N
 
 
 def generate_ai_questions(text: str, qtype: str, count: int = 3, grade: str = "6", subject: str = "") -> list:
-    """تولید سوال واقعی با Ollama gemma3:1b."""
+    """تولید سوال واقعی با OpenRouter (gemma-2-9b)"""
     text = (text or "").strip()
     if len(text) < 50:
         return []
 
-    # تمیز کردن متن برای Ollama
+    # تمیز کردن متن
     text_clean = re.sub(r'[^\u0600-\u06FF\u200C\u200D\s\.\،\؛\؟\!\-\d]', ' ', text)
-    text_clean = re.sub(r'\s+', ' ', text_clean).strip()[:3000]
+    text_clean = re.sub(r'\s+', ' ', text_clean).strip()[:2000]
 
-    prompt = f"""از متن فصل {subject} پایه {grade}، دقیقاً {count} سوال {qtype} استاندارد مطابق کتاب درسی بساز.
+    messages = [{
+        "role": "user",
+        "content": f"""از متن فصل {subject} پایه {grade}، دقیقاً {count} سوال {qtype} استاندارد مطابق کتاب درسی بساز.
 
 متن فصل:
 {text_clean}
@@ -200,49 +202,52 @@ def generate_ai_questions(text: str, qtype: str, count: int = 3, grade: str = "6
 الزامات دقیق:
 1. سوال‌ها مفهومی و آموزشی باشند
 2. تستی: 4 گزینه الف،ب،ج،د با پاسخ واضح
-3. درست/غلط: یک جمله + درست/نادرست
+3. درست/غلط: یک جمله + درست/نادرست  
 4. تشریحی: سوال کامل بدون پاسخ
 5. سطح مناسب {grade}م
 
-فقط JSON معتبر برگردان:
+فقط JSON معتبر برگردان - بدون توضیح اضافی:
 
 {{
   "questions": [
     {{
       "question": "سوال کامل...",
       "type": "{qtype}",
-      "options": ["الف: متن کامل گزینه", "ب: ...", "ج: ...", "د: ..."],
+      "options": ["الف: متن کامل گزینه", "ب: متن کامل", "ج: متن کامل", "د: متن کامل"],
       "answer": "الف"
     }}
   ]
-}}
-"""
+}}"""
+    }]
 
     try:
         response = requests.post(
-            OLLAMA_URL,
-            json={
-                "model": OLLAMA_MODEL,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.3,
-                    "top_p": 0.9,
-                    "num_predict": 500
-                }
+            OPENROUTER_URL,
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://madrese.ai",
+                "X-Title": "MadreseAI"
             },
-            timeout=45
+            json={
+                "model": "google/gemma-2-9b-it:free",
+                "messages": messages,
+                "temperature": 0.3,
+                "max_tokens": 1000
+            },
+            timeout=30
         )
         
         if response.status_code == 200:
             result = response.json()
-            ai_text = result.get("response", "")
+            ai_text = result["choices"][0]["message"]["content"]
             
             # استخراج JSON از پاسخ
-            json_match = re.search(r'\{[^{}]*(?:"questions"[^}]*)\}', ai_text, re.DOTALL)
-            if json_match:
+            start = ai_text.find('{')
+            end = ai_text.rfind('}') + 1
+            if start != -1 and end > start:
                 try:
-                    data = json.loads(json_match.group())
+                    data = json.loads(ai_text[start:end])
                     questions = data.get("questions", [])
                     if questions:
                         return questions
@@ -250,9 +255,9 @@ def generate_ai_questions(text: str, qtype: str, count: int = 3, grade: str = "6
                     pass
         
     except Exception as e:
-        print(f"Ollama error: {e}")
+        print(f"OpenRouter error: {e}")
 
-    # Fallback به دمو اگر AI کار نکرد
+    # Fallback به دمو
     return generate_demo_questions_from_text(text, qtype, count)
 
 
@@ -262,7 +267,6 @@ def generate_demo_questions_from_text(text: str, qtype: str, count: int = 3):
     if not text:
         return []
 
-    # تمیز کردن سریع
     text = re.sub(r'[^\u0600-\u06FF\u200C\u200D\s\.\،\؛\؟\!\-\d]', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
     
@@ -338,7 +342,7 @@ def demo_quiz():
             "questions": []
         }), 400
 
-    # اول AI، اگر کار نکرد دمو
+    # اول OpenRouter AI، اگر کار نکرد دمو
     questions = generate_ai_questions(text, qtype, count, grade, subject)
     
     if not questions:
