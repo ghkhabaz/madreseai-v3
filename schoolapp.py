@@ -183,81 +183,78 @@ def load_book_text(grade: str, subject: str, chapter: str, track: str | None = N
 
 
 def generate_ai_questions(text: str, qtype: str, count: int = 3, grade: str = "6", subject: str = "") -> list:
-    """تولید سوال واقعی با OpenRouter (gemma-2-9b)"""
     text = (text or "").strip()
     if len(text) < 50:
         return []
 
-    # تمیز کردن متن
     text_clean = re.sub(r'[^\u0600-\u06FF\u200C\u200D\s\.\،\؛\؟\!\-\d]', ' ', text)
-    text_clean = re.sub(r'\s+', ' ', text_clean).strip()[:2000]
+    text_clean = re.sub(r'\s+', ' ', text_clean).strip()[:1500]  # کوتاه‌تر
 
     messages = [{
         "role": "user",
-        "content": f"""از متن فصل {subject} پایه {grade}، دقیقاً {count} سوال {qtype} استاندارد مطابق کتاب درسی بساز.
+        "content": f"""از متن زیر {count} سوال {qtype} بساز:
 
-متن فصل:
-{text_clean}
+{text_clean[:800]}...
 
-الزامات دقیق:
-1. سوال‌ها مفهومی و آموزشی باشند
-2. تستی: 4 گزینه الف،ب،ج،د با پاسخ واضح
-3. درست/غلط: یک جمله + درست/نادرست  
-4. تشریحی: سوال کامل بدون پاسخ
-5. سطح مناسب {grade}م
-
-فقط JSON معتبر برگردان - بدون توضیح اضافی:
-
+JSON دقیق:
 {{
   "questions": [
-    {{
-      "question": "سوال کامل...",
-      "type": "{qtype}",
-      "options": ["الف: متن کامل گزینه", "ب: متن کامل", "ج: متن کامل", "د: متن کامل"],
-      "answer": "الف"
-    }}
+    {{"question": "سوال...", "type": "{qtype}", "options": ["الف: ...","ب: ...","ج: ...","د: ..."], "answer": "الف"}}
   ]
 }}"""
     }]
 
-    try:
-        response = requests.post(
-            OPENROUTER_URL,
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://madrese.ai",
-                "X-Title": "MadreseAI"
-            },
-            json={
-                "model": "google/gemma-2-9b-it:free",
-                "messages": messages,
-                "temperature": 0.3,
-                "max_tokens": 1000
-            },
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            ai_text = result["choices"][0]["message"]["content"]
-            
-            # استخراج JSON از پاسخ
-            start = ai_text.find('{')
-            end = ai_text.rfind('}') + 1
-            if start != -1 and end > start:
-                try:
-                    data = json.loads(ai_text[start:end])
-                    questions = data.get("questions", [])
-                    if questions:
-                        return questions
-                except json.JSONDecodeError:
-                    pass
-        
-    except Exception as e:
-        print(f"OpenRouter error: {e}")
+    # مدل‌های جایگزین (free/کم‌هزینه)
+    models = [
+        "google/gemma-2-9b-it:free",
+        "qwen/qwen2.5:3b:free",
+        "microsoft/phi-3-mini:free"
+    ]
 
-    # Fallback به دمو
+    for model in models:
+        try:
+            response = requests.post(
+                OPENROUTER_URL,
+                headers={
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://madrese.ai",
+                    "X-Title": "MadreseAI"
+                },
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "temperature": 0.1,  # پایین‌تر
+                    "max_tokens": 800
+                },
+                timeout=25
+            )
+            
+            print(f"OpenRouter {model}: {response.status_code}")  # دیباگ
+            
+            if response.status_code == 200:
+                result = response.json()
+                ai_text = result["choices"][0]["message"]["content"]
+                
+                # JSON بهتر extract
+                json_match = re.search(r'\{.*"questions".*\}', ai_text, re.DOTALL)
+                if json_match:
+                    try:
+                        data = json.loads(json_match.group())
+                        questions = data.get("questions", [])
+                        if len(questions) == count:
+                            print(f"✅ AI موفق: {model}")
+                            return questions
+                    except:
+                        pass
+            else:
+                print(f"❌ {model}: {response.text[:100]}")
+                
+        except Exception as e:
+            print(f"❌ {model} error: {e}")
+            continue
+
+    print("❌ همه مدل‌ها شکست → Demo")
     return generate_demo_questions_from_text(text, qtype, count)
 
 
